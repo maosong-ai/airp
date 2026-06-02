@@ -1,0 +1,63 @@
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Editor / IDE
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Build / bundler output
+dist/
+build/
+out/
+.vite/
+*.tsbuildinfo
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs & diagnostics
+logs/
+*.log
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Caches & temp
+.cache/
+.parcel-cache/
+.turbo/
+tmp/
+temp/
+*.tmp
+*.local
+
+# Optional tooling
+.vercel/
+.netlify/

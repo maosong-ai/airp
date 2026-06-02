@@ -1,0 +1,1173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/maosong-ai/airp/1.0.0/airp-document.schema.json",
+  "title": "AIRP Document",
+  "description": "AI Report Protocol — version 1.0.0. Semantic document IR for agent-generated technical reports. No layout coordinates; renderer derives presentation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "meta", "i18n", "blocks"],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0",
+      "description": "AIRP document schema version. Renderer must reject unknown major versions."
+    },
+    "meta": { "$ref": "#/$defs/DocumentMeta" },
+    "i18n": { "$ref": "#/$defs/I18nConfig" },
+    "blocks": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/Block" }
+    }
+  },
+  "$defs": {
+    "LocaleCode": {
+      "type": "string",
+      "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+      "examples": ["zh-CN", "en", "ja"]
+    },
+    "LocalizedString": {
+      "description": "Map of locale code to user-visible string. Must include meta.defaultLocale key when object form is used.",
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        }
+      ]
+    },
+    "RichText": {
+      "description": "Plain string (markdown-lite) or structured inline nodes. Renderer supports **bold**, `code`, and [links](url) in string form.",
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/InlineNode" },
+          "minItems": 1
+        }
+      ]
+    },
+    "InlineNode": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "value"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "text" },
+            "value": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "value"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "code" },
+            "value": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "strong" },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/InlineNode" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "href", "children"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "link" },
+            "href": { "type": "string" },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/InlineNode" }
+            }
+          }
+        }
+      ]
+    },
+    "Severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low", "info"]
+    },
+    "Status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "partial",
+        "warning",
+        "neutral",
+        "pending",
+        "in_progress",
+        "done",
+        "blocked",
+        "skipped"
+      ]
+    },
+    "Tone": {
+      "type": "string",
+      "enum": ["neutral", "positive", "negative", "warning", "accent"]
+    },
+    "Importance": {
+      "type": "string",
+      "enum": ["hero", "primary", "secondary", "reference"],
+      "description": "Semantic weight for renderer hierarchy — not pixel layout."
+    },
+    "Badge": {
+      "type": "object",
+      "required": ["label"],
+      "additionalProperties": false,
+      "properties": {
+        "label": { "$ref": "#/$defs/LocalizedString" },
+        "tone": { "$ref": "#/$defs/Tone" },
+        "status": { "$ref": "#/$defs/Status" }
+      }
+    },
+    "DocumentMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "kind", "createdAt"],
+      "properties": {
+        "title": { "$ref": "#/$defs/LocalizedString" },
+        "subtitle": { "$ref": "#/$defs/LocalizedString" },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "refactoring",
+            "migration",
+            "audit",
+            "plan-review",
+            "diff-review",
+            "architecture",
+            "incident",
+            "recap",
+            "fact-check",
+            "generic"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "authors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "sourceRefs": {
+          "type": "array",
+          "description": "Repository paths, PRs, or external URLs this report is based on.",
+          "items": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["path", "url", "commit", "pr", "issue"]
+              },
+              "value": { "type": "string" },
+              "label": { "$ref": "#/$defs/LocalizedString" }
+            }
+          }
+        }
+      }
+    },
+    "I18nConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["defaultLocale", "locales"],
+      "properties": {
+        "defaultLocale": { "$ref": "#/$defs/LocaleCode" },
+        "locales": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/LocaleCode" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "ui": {
+          "type": "object",
+          "description": "Renderer chrome strings per locale (TOC title, expand diagram, etc.).",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          }
+        }
+      }
+    },
+    "Block": {
+      "oneOf": [
+        { "$ref": "#/$defs/HeroBlock" },
+        { "$ref": "#/$defs/SectionBlock" },
+        { "$ref": "#/$defs/GroupBlock" },
+        { "$ref": "#/$defs/DividerBlock" },
+        { "$ref": "#/$defs/SpacerBlock" },
+        { "$ref": "#/$defs/HeadingBlock" },
+        { "$ref": "#/$defs/ParagraphBlock" },
+        { "$ref": "#/$defs/LeadBlock" },
+        { "$ref": "#/$defs/PullQuoteBlock" },
+        { "$ref": "#/$defs/BlockquoteBlock" },
+        { "$ref": "#/$defs/CalloutBlock" },
+        { "$ref": "#/$defs/BulletListBlock" },
+        { "$ref": "#/$defs/NumberedListBlock" },
+        { "$ref": "#/$defs/ChecklistBlock" },
+        { "$ref": "#/$defs/DefinitionListBlock" },
+        { "$ref": "#/$defs/TableBlock" },
+        { "$ref": "#/$defs/ComparisonBlock" },
+        { "$ref": "#/$defs/CollectionBlock" },
+        { "$ref": "#/$defs/KeyValueListBlock" },
+        { "$ref": "#/$defs/StatusBoardBlock" },
+        { "$ref": "#/$defs/CodeBlock" },
+        { "$ref": "#/$defs/CodeDiffBlock" },
+        { "$ref": "#/$defs/FileTreeBlock" },
+        { "$ref": "#/$defs/FileChangeListBlock" },
+        { "$ref": "#/$defs/MermaidBlock" },
+        { "$ref": "#/$defs/ArchitectureOverviewBlock" },
+        { "$ref": "#/$defs/FlowStepsBlock" },
+        { "$ref": "#/$defs/DecisionBlock" },
+        { "$ref": "#/$defs/RiskBlock" },
+        { "$ref": "#/$defs/AssumptionBlock" },
+        { "$ref": "#/$defs/ConstraintBlock" },
+        { "$ref": "#/$defs/OpenQuestionBlock" },
+        { "$ref": "#/$defs/TimelineBlock" },
+        { "$ref": "#/$defs/RoadmapBlock" },
+        { "$ref": "#/$defs/RequirementTraceBlock" },
+        { "$ref": "#/$defs/TestResultBlock" },
+        { "$ref": "#/$defs/ApiInventoryBlock" },
+        { "$ref": "#/$defs/LinkListBlock" },
+        { "$ref": "#/$defs/GlossaryBlock" },
+        { "$ref": "#/$defs/CitationBlock" },
+        { "$ref": "#/$defs/ImageBlock" },
+        { "$ref": "#/$defs/EmbedBlock" },
+        { "$ref": "#/$defs/CollapsibleBlock" },
+        { "$ref": "#/$defs/TabsBlock" },
+        { "$ref": "#/$defs/AppendixBlock" },
+        { "$ref": "#/$defs/AgentNoteBlock" }
+      ],
+      "discriminator": {
+        "propertyName": "type"
+      }
+    },
+    "BlockBase": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Stable anchor for TOC / cross-links. Auto-slug from title if omitted on section."
+        },
+        "importance": { "$ref": "#/$defs/Importance" }
+      }
+    },
+    "HeroBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/BlockBase" },
+        {
+          "type": "object",
+          "required": ["type", "metrics"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "hero" },
+            "id": { "type": "string" },
+            "importance": { "$ref": "#/$defs/Importance" },
+            "metrics": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/CollectionItem" },
+              "minItems": 1,
+              "maxItems": 8
+            },
+            "badges": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/Badge" }
+            }
+          }
+        }
+      ]
+    },
+    "SectionBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/BlockBase" },
+        {
+          "type": "object",
+          "required": ["type", "title", "children"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "section" },
+            "id": { "type": "string" },
+            "importance": { "$ref": "#/$defs/Importance" },
+            "level": { "type": "integer", "minimum": 1, "maximum": 4, "default": 2 },
+            "title": { "$ref": "#/$defs/LocalizedString" },
+            "lead": { "$ref": "#/$defs/RichText" },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/Block" }
+            }
+          }
+        }
+      ]
+    },
+    "GroupBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/BlockBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "group" },
+            "id": { "type": "string" },
+            "importance": { "$ref": "#/$defs/Importance" },
+            "title": { "$ref": "#/$defs/LocalizedString" },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/Block" }
+            }
+          }
+        }
+      ]
+    },
+    "DividerBlock": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "divider" },
+        "label": { "$ref": "#/$defs/LocalizedString" }
+      }
+    },
+    "SpacerBlock": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "spacer" },
+        "size": { "type": "string", "enum": ["sm", "md", "lg"], "default": "md" }
+      }
+    },
+    "HeadingBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/BlockBase" },
+        {
+          "type": "object",
+          "required": ["type", "level", "text"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "heading" },
+            "id": { "type": "string" },
+            "importance": { "$ref": "#/$defs/Importance" },
+            "level": { "type": "integer", "minimum": 1, "maximum": 6 },
+            "text": { "$ref": "#/$defs/LocalizedString" }
+          }
+        }
+      ]
+    },
+    "ParagraphBlock": {
+      "type": "object",
+      "required": ["type", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "paragraph" },
+        "text": { "$ref": "#/$defs/RichText" }
+      }
+    },
+    "LeadBlock": {
+      "type": "object",
+      "required": ["type", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "lead" },
+        "text": { "$ref": "#/$defs/RichText" }
+      }
+    },
+    "PullQuoteBlock": {
+      "type": "object",
+      "required": ["type", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "pullQuote" },
+        "text": { "$ref": "#/$defs/LocalizedString" },
+        "attribution": { "$ref": "#/$defs/LocalizedString" }
+      }
+    },
+    "BlockquoteBlock": {
+      "type": "object",
+      "required": ["type", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "blockquote" },
+        "text": { "$ref": "#/$defs/RichText" }
+      }
+    },
+    "CalloutBlock": {
+      "type": "object",
+      "required": ["type", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "callout" },
+        "variant": {
+          "type": "string",
+          "enum": ["info", "tip", "success", "warning", "danger"],
+          "default": "info"
+        },
+        "title": { "$ref": "#/$defs/LocalizedString" },
+        "body": { "$ref": "#/$defs/RichText" }
+      }
+    },
+    "BulletListBlock": {
+      "type": "object",
+      "required": ["type", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "bulletList" },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/RichText" },
+          "minItems": 1
+        }
+      }
+    },
+    "NumberedListBlock": {
+      "type": "object",
+      "required": ["type", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "numberedList" },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/RichText" },
+          "minItems": 1
+        }
+      }
+    },
+    "ChecklistBlock": {
+      "type": "object",
+      "required": ["type", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "checklist" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["label"],
+            "additionalProperties": false,
+            "properties": {
+              "label": { "$ref": "#/$defs/RichText" },
+              "checked": { "type": "boolean", "default": false },
+              "status": { "$ref": "#/$defs/Status" },
+              "note": { "$ref": "#/$defs/RichText" }
+            }
+          }
+        }
+      }
+    },
+    "DefinitionListBlock": {
+      "type": "object",
+      "required": ["type", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "definitionList" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["term", "definition"],
+            "additionalProperties": false,
+            "properties": {
+              "term": { "$ref": "#/$defs/LocalizedString" },
+              "definition": { "$ref": "#/$defs/RichText" }
+            }
+          }
+        }
+      }
+    },
+    "TableColumn": {
+      "type": "object",
+      "required": ["key", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "key": { "type": "string" },
+        "label": { "$ref": "#/$defs/LocalizedString" },
+        "cellKind": {
+          "type": "string",
+          "enum": ["text", "code", "number", "status", "badge", "link"],
+          "default": "text"
+        },
+        "align": {
+          "type": "string",
+          "enum": ["start", "end", "center"],
+          "description": "Semantic alignment for numeric/code columns — renderer maps to CSS."
+        }
+      }
+    },
+    "TableBlock": {
+      "type": "object",
+      "required": ["type", "columns", "rows"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "table" },
+        "caption": { "$ref": "#/$defs/LocalizedString" },
+        "columns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/TableColumn" },
+          "minItems": 1
+        },
+        "rows": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": true }
+        },
+        "footerRow": { "type": "object", "additionalProperties": true },
+        "importance": { "$ref": "#/$defs/Importance" }
+      }
+    },
+    "ComparisonBlock": {
+      "type": "object",
+      "required": ["type", "before", "after"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "comparison" },
+        "labelBefore": { "$ref": "#/$defs/LocalizedString" },
+        "labelAfter": { "$ref": "#/$defs/LocalizedString" },
+        "before": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Block" }
+        },
+        "after": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Block" }
+        }
+      }
+    },
+    "CollectionItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "$ref": "#/$defs/LocalizedString" },
+        "description": { "$ref": "#/$defs/RichText" },
+        "value": { "type": ["string", "number"] },
+        "unit": { "$ref": "#/$defs/LocalizedString" },
+        "delta": { "$ref": "#/$defs/LocalizedString" },
+        "tone": { "$ref": "#/$defs/Tone" },
+        "status": { "$ref": "#/$defs/Status" },
+        "badges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Badge" }
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "children": {
+          "type": "array",
+          "description": "Nested blocks inside a collection item (e.g. file tree in a panel).",
+          "items": { "$ref": "#/$defs/Block" }
+        }
+      }
+    },
+    "CollectionBlock": {
+      "type": "object",
+      "required": ["type", "variant", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "collection" },
+        "variant": {
+          "type": "string",
+          "enum": ["card", "metric", "stat", "chip", "panel", "compact"],
+          "description": "Semantic density/shape — renderer maps to auto-wrapping flex/grid, not explicit coordinates."
+        },
+        "title": { "$ref": "#/$defs/LocalizedString" },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/CollectionItem" },
+          "minItems": 1
+        },
+        "importance": { "$ref": "#/$defs/Importance" }
+      }
+    },
+    "KeyValueListBlock": {
+      "type": "object",
+      "required": ["type", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "keyValueList" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["key", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "key": { "$ref": "#/$defs/LocalizedString" },
+              "value": { "$ref": "#/$defs/RichText" }
+            }
+          }
+        },
+        "layout": {
+          "type": "string",
+          "enum": ["auto", "stacked", "inline"],
+          "default": "auto",
+          "description": "Semantic density hint only. 'auto' lets renderer pick based on viewport and item count."
+        }
+      }
+    },
+    "StatusBoardBlock": {
+      "type": "object",
+      "required": ["type", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "statusBoard" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["label", "status"],
+            "additionalProperties": false,
+            "properties": {
+              "label": { "$ref": "#/$defs/LocalizedString" },
+              "status": { "$ref": "#/$defs/Status" },
+              "detail": { "$ref": "#/$defs/RichText" }
+            }
+          }
+        }
+      }
+    },
+    "CodeBlock": {
+      "type": "object",
+      "required": ["type", "code"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "code" },
+        "language": { "type": "string" },
+        "filename": { "type": "string" },
+        "code": { "type": "string" },
+        "highlightLines": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "maxLines": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Renderer may collapse with expand control beyond this count."
+        }
+      }
+    },
+    "CodeDiffBlock": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "codeDiff" },
+        "filename": { "type": "string" },
+        "language": { "type": "string" },
+        "unified": { "type": "string" },
+        "before": { "type": "string" },
+        "after": { "type": "string" }
+      },
+      "oneOf": [
+        { "required": ["unified"] },
+        { "required": ["before", "after"] }
+      ]
+    },
+    "FileTreeNode": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "change": {
+          "type": "string",
+          "enum": ["added", "modified", "deleted", "renamed", "unchanged"]
+        },
+        "annotation": { "$ref": "#/$defs/LocalizedString" },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FileTreeNode" }
+        }
+      }
+    },
+    "FileTreeBlock": {
+      "type": "object",
+      "required": ["type", "root"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "fileTree" },
+        "root": { "$ref": "#/$defs/FileTreeNode" },
+        "caption": { "$ref": "#/$defs/LocalizedString" }
+      }
+    },
+    "FileChangeListBlock": {
+      "type": "object",
+      "required": ["type", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "fileChangeList" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["path", "change"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string" },
+              "change": {
+                "type": "string",
+                "enum": ["added", "modified", "deleted", "renamed"]
+              },
+              "note": { "$ref": "#/$defs/RichText" },
+              "sizeBefore": { "type": "string" },
+              "sizeAfter": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "MermaidBlock": {
+      "type": "object",
+      "required": ["type", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "mermaid" },
+        "diagramKind": {
+          "type": "string",
+          "enum": [
+            "flowchart",
+            "sequence",
+            "class",
+            "state",
+            "er",
+            "mindmap",
+            "gantt",
+            "other"
+          ],
+          "default": "flowchart"
+        },
+        "title": { "$ref": "#/$defs/LocalizedString" },
+        "source": {
+          "type": "string",
+          "description": "Raw Mermaid source without fenced code markers."
+        },
+        "complexity": {
+          "type": "string",
+          "enum": ["simple", "medium", "complex"],
+          "description": "Renderer adjusts default zoom / hybrid layout threshold."
+        }
+      }
+    },
+    "ArchitectureOverviewBlock": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "architectureOverview" },
+        "overview": { "$ref": "#/$defs/MermaidBlock" },
+        "modules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/CollectionItem" },
+          "description": "Detail cards; renderer stacks below diagram when complexity is high."
+        }
+      }
+    },
+    "FlowStepsBlock": {
+      "type": "object",
+      "required": ["type", "steps"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "flowSteps" },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["title"],
+            "additionalProperties": false,
+            "properties": {
+              "title": { "$ref": "#/$defs/LocalizedString" },
+              "description": { "$ref": "#/$defs/RichText" },
+              "status": { "$ref": "#/$defs/Status" }
+            }
+          }
+        }
+      }
+    },
+    "DecisionBlock": {
+      "type": "object",
+      "required": ["type", "title", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "decision" },
+        "id": { "type": "string" },
+        "title": { "$ref": "#/$defs/LocalizedString" },
+        "context": { "$ref": "#/$defs/RichText" },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["label"],
+            "additionalProperties": false,
+            "properties": {
+              "label": { "$ref": "#/$defs/LocalizedString" },
+              "pros": { "$ref": "#/$defs/RichText" },
+              "cons": { "$ref": "#/$defs/RichText" }
+            }
+          }
+        },
+        "chosen": { "$ref": "#/$defs/LocalizedString" },
+        "rationale": { "$ref": "#/$defs/RichText" },
+        "status": {
+          "type": "string",
+          "enum": ["proposed", "accepted", "rejected", "superseded", "deferred"]
+        }
+      }
+    },
+    "RiskBlock": {
+      "type": "object",
+      "required": ["type", "title", "severity"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "risk" },
+        "id": { "type": "string" },
+        "title": { "$ref": "#/$defs/LocalizedString" },
+        "description": { "$ref": "#/$defs/RichText" },
+        "severity": { "$ref": "#/$defs/Severity" },
+        "likelihood": {
+          "type": "string",
+          "enum": ["rare", "unlikely", "possible", "likely", "certain"]
+        },
+        "mitigation": { "$ref": "#/$defs/RichText" },
+        "owner": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["open", "mitigated", "accepted", "closed"]
+        }
+      }
+    },
+    "AssumptionBlock": {
+      "type": "object",
+      "required": ["type", "statement"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "assumption" },
+        "statement": { "$ref": "#/$defs/RichText" },
+        "validated": { "type": "boolean" }
+      }
+    },
+    "ConstraintBlock": {
+      "type": "object",
+      "required": ["type", "rule"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "constraint" },
+        "rule": { "$ref": "#/$defs/RichText" },
+        "scope": { "$ref": "#/$defs/LocalizedString" },
+        "nonNegotiable": { "type": "boolean", "default": true }
+      }
+    },
+    "OpenQuestionBlock": {
+      "type": "object",
+      "required": ["type", "question"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "openQuestion" },
+        "question": { "$ref": "#/$defs/RichText" },
+        "blocking": { "type": "boolean", "default": false }
+      }
+    },
+    "TimelineBlock": {
+      "type": "object",
+      "required": ["type", "events"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "timeline" },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["title"],
+            "additionalProperties": false,
+            "properties": {
+              "date": { "type": "string" },
+              "title": { "$ref": "#/$defs/LocalizedString" },
+              "description": { "$ref": "#/$defs/RichText" },
+              "status": { "$ref": "#/$defs/Status" }
+            }
+          }
+        }
+      }
+    },
+    "RoadmapBlock": {
+      "type": "object",
+      "required": ["type", "phases"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "roadmap" },
+        "phases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["title"],
+            "additionalProperties": false,
+            "properties": {
+              "title": { "$ref": "#/$defs/LocalizedString" },
+              "timeframe": { "$ref": "#/$defs/LocalizedString" },
+              "goals": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/RichText" }
+              },
+              "status": { "$ref": "#/$defs/Status" }
+            }
+          }
+        }
+      }
+    },
+    "RequirementTraceBlock": {
+      "type": "object",
+      "required": ["type", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "requirementTrace" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["reqId", "status"],
+            "additionalProperties": false,
+            "properties": {
+              "reqId": { "type": "string" },
+              "summary": { "$ref": "#/$defs/LocalizedString" },
+              "status": { "$ref": "#/$defs/Status" },
+              "evidence": { "$ref": "#/$defs/RichText" },
+              "gap": { "$ref": "#/$defs/RichText" }
+            }
+          }
+        }
+      }
+    },
+    "TestResultBlock": {
+      "type": "object",
+      "required": ["type", "suites"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "testResult" },
+        "suites": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "passed", "failed"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "passed": { "type": "integer", "minimum": 0 },
+              "failed": { "type": "integer", "minimum": 0 },
+              "skipped": { "type": "integer", "minimum": 0 },
+              "notes": { "$ref": "#/$defs/RichText" }
+            }
+          }
+        }
+      }
+    },
+    "ApiInventoryBlock": {
+      "type": "object",
+      "required": ["type", "endpoints"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "apiInventory" },
+        "endpoints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["method", "path"],
+            "additionalProperties": false,
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+              },
+              "path": { "type": "string" },
+              "summary": { "$ref": "#/$defs/LocalizedString" },
+              "status": { "$ref": "#/$defs/Status" }
+            }
+          }
+        }
+      }
+    },
+    "LinkListBlock": {
+      "type": "object",
+      "required": ["type", "links"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "linkList" },
+        "title": { "$ref": "#/$defs/LocalizedString" },
+        "links": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["href", "label"],
+            "additionalProperties": false,
+            "properties": {
+              "href": { "type": "string" },
+              "label": { "$ref": "#/$defs/LocalizedString" },
+              "description": { "$ref": "#/$defs/RichText" }
+            }
+          }
+        }
+      }
+    },
+    "GlossaryBlock": {
+      "type": "object",
+      "required": ["type", "terms"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "glossary" },
+        "terms": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["term", "definition"],
+            "additionalProperties": false,
+            "properties": {
+              "term": { "$ref": "#/$defs/LocalizedString" },
+              "definition": { "$ref": "#/$defs/RichText" }
+            }
+          }
+        }
+      }
+    },
+    "CitationBlock": {
+      "type": "object",
+      "required": ["type", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "citation" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "source"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "source": { "type": "string" },
+              "locator": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "ImageBlock": {
+      "type": "object",
+      "required": ["type", "src", "alt"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "image" },
+        "src": {
+          "type": "string",
+          "description": "HTTPS URL or data URI. Renderer project may define asset resolution."
+        },
+        "alt": { "$ref": "#/$defs/LocalizedString" },
+        "caption": { "$ref": "#/$defs/LocalizedString" }
+      }
+    },
+    "EmbedBlock": {
+      "type": "object",
+      "required": ["type", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "embed" },
+        "url": { "type": "string", "format": "uri" },
+        "title": { "$ref": "#/$defs/LocalizedString" }
+      }
+    },
+    "CollapsibleBlock": {
+      "type": "object",
+      "required": ["type", "summary", "children"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "collapsible" },
+        "summary": { "$ref": "#/$defs/LocalizedString" },
+        "defaultOpen": { "type": "boolean", "default": false },
+        "importance": { "$ref": "#/$defs/Importance" },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Block" }
+        }
+      }
+    },
+    "TabsBlock": {
+      "type": "object",
+      "required": ["type", "panels"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "tabs" },
+        "panels": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["label", "children"],
+            "additionalProperties": false,
+            "properties": {
+              "label": { "$ref": "#/$defs/LocalizedString" },
+              "children": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/Block" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "AppendixBlock": {
+      "type": "object",
+      "required": ["type", "title", "children"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "appendix" },
+        "title": { "$ref": "#/$defs/LocalizedString" },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Block" }
+        }
+      }
+    },
+    "AgentNoteBlock": {
+      "type": "object",
+      "required": ["type", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "agentNote" },
+        "text": { "$ref": "#/$defs/RichText" },
+        "visible": {
+          "type": "boolean",
+          "default": false,
+          "description": "When false, renderer omits from human-facing HTML."
+        }
+      }
+    }
+  }
+}
