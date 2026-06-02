@@ -28,14 +28,14 @@ AIRP は「AI の返信内容」を検証可能な構造化データに変換し
 
 ```mermaid
 flowchart LR
-  A[AI/Agent reply] --> B[Structure: generate .airp.json]
-  B --> C{JSON Schema validation<br/>SSOT}
-  C -- pass --> D[Renderer]
-  C -- fail --> E[Validation failed: invalid artifact<br/>fix and regenerate]
-  D --> H[HTML renderer - shipped<br/>outputs .html]
-  D -. extensible .-> P[PDF renderer - planned]
-  D -. extensible .-> X[Excel renderer - planned]
-  D -. extensible .-> N[Notion renderer - planned]
+  A[AI/エージェントの返信] --> B[構造化：.airp.json を生成]
+  B --> C{JSON Schema 検証<br/>SSOT}
+  C -- 成功 --> D[レンダラー]
+  C -- 失敗 --> E[検証失敗：成果物が無効<br/>修正して再生成]
+  D --> H[HTML レンダラー - 同梱<br/>.html を出力]
+  D -. 拡張可能 .-> P[PDF レンダラー - 予定]
+  D -. 拡張可能 .-> X[Excel レンダラー - 予定]
+  D -. 拡張可能 .-> N[Notion レンダラー - 予定]
 ```
 
 ## クイックスタート（skill のインストール）
