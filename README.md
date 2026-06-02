@@ -32,10 +32,10 @@ flowchart LR
   B --> C{JSON Schema validation<br/>SSOT}
   C -- pass --> D[Renderer]
   C -- fail --> E[Validation failed: invalid artifact<br/>fix and regenerate]
-  D --> H[HTML renderer (shipped)<br/>outputs .html]
-  D -. extensible .-> P[PDF renderer (planned)]
-  D -. extensible .-> X[Excel renderer (planned)]
-  D -. extensible .-> N[Notion renderer (planned)]
+  D --> H[HTML renderer - shipped<br/>outputs .html]
+  D -. extensible .-> P[PDF renderer - planned]
+  D -. extensible .-> X[Excel renderer - planned]
+  D -. extensible .-> N[Notion renderer - planned]
 ```
 
 ## Quick start (install skill)

@@ -32,10 +32,10 @@ flowchart LR
   B --> C{JSON Schema 校验<br/>SSOT}
   C -- 通过 --> D[渲染器 Renderer]
   C -- 失败 --> E[校验失败：产物无效<br/>需修复后重生成]
-  D --> H[HTML 渲染器（已实现）<br/>输出 .html]
-  D -. 可扩展 .-> P[PDF 渲染器（规划）]
-  D -. 可扩展 .-> X[Excel 渲染器（规划）]
-  D -. 可扩展 .-> N[Notion 渲染器（规划）]
+  D --> H[HTML 渲染器 - 已实现<br/>输出 .html]
+  D -. 可扩展 .-> P[PDF 渲染器 - 规划]
+  D -. 可扩展 .-> X[Excel 渲染器 - 规划]
+  D -. 可扩展 .-> N[Notion 渲染器 - 规划]
 ```
 
 ## 快速开始（安装 skill）
