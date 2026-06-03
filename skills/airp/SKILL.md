@@ -20,9 +20,11 @@ Generates an AIRP `*.airp.json` report (AIRP v1.0.0).
 ```
 - [ ] Determine report intent and target audience
 - [ ] Choose blocks (follow references/block-selection.md)
+- [ ] For diagrams: follow references/mermaid-authoring.md
 - [ ] Read and follow the schema (single source of truth)
 - [ ] Write <output.airp.json> under the workspace
-- [ ] Validate the output (must print "OK")
+- [ ] Validate the output (must print "OK" — schema)
+- [ ] Self-check Mermaid sources per mermaid-authoring.md (not covered by validate CLI)
 ```
 
 **Step 1 — Choose blocks**
@@ -30,6 +32,12 @@ Generates an AIRP `*.airp.json` report (AIRP v1.0.0).
 Use the "content → block" selection rules:
 
 - `references/block-selection.md`
+
+**Step 1b — Mermaid (when using `mermaid` or `architectureOverview`)**
+
+Read and apply:
+
+- `references/mermaid-authoring.md` (special characters, quoted nodes, official docs)
 
 **Step 2 — Follow the schema (source of truth)**
 
@@ -62,7 +70,11 @@ node scripts/validate-airp.mjs <path/to/file.airp.json>
 
 If you run from the project root, resolve `scripts/validate-airp.mjs` to an absolute path under this skill, or `cd` to the skill root first.
 
-If validation fails, do not produce a "best-effort" file. Fix the JSON until validation prints `OK`.
+`OK` means the file passes **AIRP JSON Schema** (structure, block types, required fields).
+
+**Mermaid** is not validated by this CLI. Before delivery, apply `mermaid-authoring.md` to every `mermaid` / `architectureOverview.overview` `source`. Use `/airp-html` when you need to confirm diagrams render.
+
+On schema failure: fix JSON per Zod/schema message. Do not produce a "best-effort" file — fix until validation prints `OK`.
 
 ## Input and output
 
@@ -75,16 +87,10 @@ If validation fails, do not produce a "best-effort" file. Fix the JSON until val
 
 ## CLI (`validate-airp.mjs`)
 
-### Options
-
-| Flag | Description |
-|------|-------------|
-| `-h`, `--help` | Show help |
+Validates **schema only** (Zod / `airp-document.schema.json`). Diagram syntax is governed by `references/mermaid-authoring.md`.
 
 ### Examples
 
 ```bash
-# Validate an existing report
 node scripts/validate-airp.mjs .docs/airp/foo.airp.json
 ```
-
