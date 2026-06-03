@@ -46,11 +46,6 @@ flowchart LR
 npx skills add maosong-ai/airp
 ```
 
-默认输出目录：
-
-- 项目内：`.docs/airp/`
-- 可覆盖：命令参数 `--out <dir>` 或环境变量 `AIRP_OUT_DIR`
-
 命令一览：
 
 | 命令 | 产出物 | 用途 |
@@ -133,7 +128,7 @@ AIRP 的 **JSON Schema** 是生成与校验的唯一真源：`./airp-document.sc
 ### 产物会输出到哪里？
 
 - 默认输出到项目内：`.docs/airp/`
-- 可通过命令参数 `--out <dir>` 或环境变量 `AIRP_OUT_DIR` 覆盖
+- 可通过命令参数 `--out <dir>`
 
 ### 我应该保存哪一个文件？
 

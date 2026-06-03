@@ -46,11 +46,6 @@ Install:
 npx skills add maosong-ai/airp
 ```
 
-Default output directory:
-
-- In project: `.docs/airp/`
-- Override: `--out <dir>` or env var `AIRP_OUT_DIR`
-
 Commands:
 
 | Command | Output | Purpose |
@@ -133,7 +128,7 @@ AIRP’s **JSON Schema** is the sole source for generation and validation: `./ai
 ### Where do artifacts go?
 
 - Default: `.docs/airp/` inside the project
-- Override: `--out <dir>` or `AIRP_OUT_DIR`
+- Override: `--out <dir>`
 
 ### Which file should I keep?
 

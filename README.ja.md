@@ -46,11 +46,6 @@ flowchart LR
 npx skills add maosong-ai/airp
 ```
 
-デフォルト出力ディレクトリ：
-
-- プロジェクト内：`.docs/airp/`
-- 上書き：`--out <dir>` または環境変数 `AIRP_OUT_DIR`
-
 コマンド一覧：
 
 | Command | Output | Purpose |
@@ -133,7 +128,7 @@ AIRP の **JSON Schema** は生成と検証の唯一の真実の源です：`./a
 ### 成果物はどこに出力されますか？
 
 - デフォルト：プロジェクト内の `.docs/airp/`
-- 上書き：`--out <dir>` または `AIRP_OUT_DIR`
+- 上書き：`--out <dir>`
 
 ### どのファイルを保存すべきですか？
 
