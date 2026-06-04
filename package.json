@@ -1,0 +1,32 @@
+{
+  "name": "airp-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "workspaces": [
+    "renderer",
+    "tests"
+  ],
+  "scripts": {
+    "preinstall": "npx only-allow pnpm",
+    "build": "pnpm run build:renderer && pnpm run build:skills",
+    "build:renderer": "pnpm -C renderer build",
+    "build:skills": "node scripts/build-skills.mjs",
+    "dev": "pnpm -C renderer dev",
+    "preview": "pnpm -C renderer preview",
+    "test": "pnpm run test",
+    "test:unit": "pnpm -C tests test",
+    "test:integration": "pnpm -C tests test",
+    "test:watch": "pnpm -C tests test:watch",
+    "validate:schema": "pnpm -C renderer run validate",
+    "render:html": "pnpm -C renderer run render:html",
+    "render:markdown": "pnpm -C renderer run render:markdown"
+  },
+  "devDependencies": {
+    "only-allow": "^1.2.1"
+  }
+}

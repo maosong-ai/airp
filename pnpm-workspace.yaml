@@ -1,0 +1,7 @@
+packages:
+  - renderer
+  - tests
+
+shared-workspace-lockfile: true
+allowBuilds:
+  esbuild: true

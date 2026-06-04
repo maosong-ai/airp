@@ -1,4 +1,4 @@
-import { cp, mkdir } from "node:fs/promises";
+import { cp, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,6 +8,7 @@ async function vendorRendererPublic({ repoRoot, dstSkillRoot }) {
   const srcPublic = path.join(repoRoot, "renderer", "public");
   const dstPublic = path.join(dstSkillRoot, "assets", "renderer", "public");
   await mkdir(path.dirname(dstPublic), { recursive: true });
+  await rm(dstPublic, { recursive: true, force: true });
   await cp(srcPublic, dstPublic, { recursive: true });
   return { srcPublic, dstPublic };
 }
@@ -33,6 +34,7 @@ async function main() {
   const srcDist = path.join(repoRoot, "renderer", "dist");
   const dstDashDist = path.join(airpDashboardRoot, "renderer-dist");
   await mkdir(path.dirname(dstDashDist), { recursive: true });
+  await rm(dstDashDist, { recursive: true, force: true });
   await cp(srcDist, dstDashDist, { recursive: true });
 
   console.log(
