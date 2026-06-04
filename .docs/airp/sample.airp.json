@@ -1,0 +1,1261 @@
+{
+  "schemaVersion": "1.0.0",
+  "meta": {
+    "title": {
+      "zh-CN": "AIRP Block 能力全景示例",
+      "ja": "AIRP ブロック能力サンプル",
+      "en": "AIRP Block Capability Showcase"
+    },
+    "subtitle": {
+      "zh-CN": "虚构项目「Komorebi Gateway」迁移报告 — 中日英三语",
+      "ja": "架空プロジェクト「Komorebi Gateway」移行報告 — 中日英",
+      "en": "Fictional Komorebi Gateway migration report — zh / ja / en"
+    },
+    "kind": "generic",
+    "createdAt": "2026-06-04T08:00:00.000Z",
+    "authors": ["AIRP Sample Generator"],
+    "tags": ["sample", "showcase", "blocks", "i18n", "demo"],
+    "sourceRefs": [
+      {
+        "type": "path",
+        "value": ".docs/airp/sample.airp.json",
+        "label": {
+          "zh-CN": "本示例文件",
+          "ja": "本サンプル",
+          "en": "This sample file"
+        }
+      },
+      {
+        "type": "url",
+        "value": "https://github.com/maosong-ai/airp",
+        "label": {
+          "zh-CN": "AIRP 仓库",
+          "ja": "AIRP リポジトリ",
+          "en": "AIRP repository"
+        }
+      }
+    ]
+  },
+  "i18n": {
+    "defaultLocale": "zh-CN",
+    "locales": ["zh-CN", "ja", "en"],
+    "ui": {
+      "zh-CN": { "toc": "目录", "expand": "展开" },
+      "ja": { "toc": "目次", "expand": "展開" },
+      "en": { "toc": "Contents", "expand": "Expand" }
+    }
+  },
+  "blocks": [
+    {
+      "type": "hero",
+      "id": "hero",
+      "importance": "hero",
+      "metrics": [
+        {
+          "title": { "zh-CN": "Block 类型", "ja": "ブロック種別", "en": "Block types" },
+          "value": 46,
+          "unit": { "zh-CN": "种", "ja": "種", "en": "kinds" },
+          "description": {
+            "zh-CN": "schema discriminator 全覆盖",
+            "ja": "schema discriminator 全カバー",
+            "en": "Full schema discriminator coverage"
+          }
+        },
+        {
+          "title": { "zh-CN": "语言", "ja": "言語", "en": "Locales" },
+          "value": 3,
+          "description": {
+            "zh-CN": "zh-CN · ja · en",
+            "ja": "zh-CN · ja · en",
+            "en": "zh-CN · ja · en"
+          }
+        },
+        {
+          "title": { "zh-CN": "迁移窗口", "ja": "移行ウィンドウ", "en": "Migration window" },
+          "value": "4h",
+          "delta": { "zh-CN": "零停机", "ja": "無停止", "en": "Zero downtime" },
+          "tone": "positive",
+          "status": "pass"
+        },
+        {
+          "title": { "zh-CN": "API 覆盖", "ja": "API カバー", "en": "API coverage" },
+          "value": "98%",
+          "status": "partial"
+        }
+      ],
+      "badges": [
+        {
+          "label": { "zh-CN": "示例报告", "ja": "サンプル報告", "en": "Sample report" },
+          "tone": "accent"
+        },
+        {
+          "label": { "zh-CN": "虚构数据", "ja": "架空データ", "en": "Fictional data" },
+          "tone": "neutral"
+        }
+      ]
+    },
+    {
+      "type": "lead",
+      "text": {
+        "zh-CN": "本文件为 **AIRP v1.0.0** 的演示制品：以虚构的边缘网关项目 **Komorebi Gateway** 为叙事背景，在一份报告中串联全部 block 类型，供 `/airp-html` 与 Dashboard 预览渲染能力。内容不代表真实生产状态。",
+        "ja": "本ファイルは **AIRP v1.0.0** のデモ成果物です。架空のエッジゲートウェイ **Komorebi Gateway** を題材に、全ブロック種別を一報告に集約し、`/airp-html` と Dashboard のプレビュー検証用とします。内容は本番を反映しません。",
+        "en": "This artifact demonstrates **AIRP v1.0.0**: a fictional **Komorebi Gateway** edge migration narrative wiring every block type in one report for `/airp-html` and Dashboard preview. Content is illustrative only."
+      }
+    },
+    {
+      "type": "architectureOverview",
+      "overview": {
+        "type": "mermaid",
+        "diagramKind": "flowchart",
+        "title": {
+          "zh-CN": "Komorebi 目标拓扑（虚构）",
+          "ja": "Komorebi 目標トポロジ（架空）",
+          "en": "Komorebi target topology (fictional)"
+        },
+        "source": "flowchart LR\n  Client[\"Clients\"] --> Edge[\"Komorebi Edge\"]\n  Edge --> Auth[\"Auth Service\"]\n  Edge --> API[\"API Cluster\"]\n  API --> DB[(\"Postgres\")]\n  Edge --> Obs[\"Observability\"]",
+        "complexity": "simple"
+      },
+      "modules": [
+        {
+          "title": { "zh-CN": "Edge", "ja": "Edge", "en": "Edge" },
+          "description": {
+            "zh-CN": "Rust 编写的 L7 网关，替代 Kong 插件链。",
+            "ja": "Rust 製 L7 ゲートウェイ。Kong プラグイン連鎖に代わる。",
+            "en": "Rust L7 gateway replacing Kong plugin chains."
+          },
+          "status": "in_progress"
+        },
+        {
+          "title": { "zh-CN": "Auth", "ja": "Auth", "en": "Auth" },
+          "description": {
+            "zh-CN": "JWT + mTLS 双因子；与旧 IdP 兼容层并存。",
+            "ja": "JWT + mTLS。旧 IdP 互換層と併存。",
+            "en": "JWT + mTLS with legacy IdP compatibility shim."
+          },
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "prose",
+      "title": {
+        "zh-CN": "叙述与版式块",
+        "ja": "叙述・版式ブロック",
+        "en": "Prose and layout blocks"
+      },
+      "lead": {
+        "zh-CN": "heading、段落、引用与 callout 等基础叙述能力。",
+        "ja": "見出し・段落・引用・callout などの基本叙述。",
+        "en": "Headings, paragraphs, quotes, and callouts."
+      },
+      "children": [
+        {
+          "type": "heading",
+          "id": "prose-h3",
+          "level": 3,
+          "text": {
+            "zh-CN": "三级标题示例",
+            "ja": "レベル3見出し",
+            "en": "Level-3 heading sample"
+          }
+        },
+        {
+          "type": "paragraph",
+          "text": {
+            "zh-CN": "普通段落支持 **粗体**、`inline code` 与 [外部链接](https://example.com)。也可使用结构化 inline 节点。",
+            "ja": "通常段落は **太字**、`inline code`、[リンク](https://example.com) をサポート。構造化 inline ノードも可。",
+            "en": "Paragraphs support **bold**, `inline code`, and [links](https://example.com), or structured inline nodes."
+          }
+        },
+        {
+          "type": "paragraph",
+          "text": [
+            {
+              "type": "text",
+              "value": "Structured RichText: "
+            },
+            {
+              "type": "strong",
+              "children": [{ "type": "text", "value": "strong node" }]
+            },
+            {
+              "type": "text",
+              "value": " + "
+            },
+            {
+              "type": "code",
+              "value": "code node"
+            },
+            {
+              "type": "text",
+              "value": " + "
+            },
+            {
+              "type": "link",
+              "href": "https://airp.dev",
+              "children": [{ "type": "text", "value": "link node" }]
+            }
+          ]
+        },
+        {
+          "type": "pullQuote",
+          "text": {
+            "zh-CN": "协议即文档，文档即可校验的中间表示。",
+            "ja": "プロトコルこそ文書、文書こそ検証可能な中間表現。",
+            "en": "The protocol is the document; the document is validatable IR."
+          },
+          "attribution": {
+            "zh-CN": "— 虚构架构师 Yuki",
+            "ja": "— 架空アーキテクト Yuki",
+            "en": "— Fictional architect Yuki"
+          }
+        },
+        {
+          "type": "blockquote",
+          "text": {
+            "zh-CN": "> 迁移不是替换软件，而是替换**假设**：延迟模型、故障域与可观测性契约都会变。",
+            "ja": "> 移行はソフトの差し替えではなく**前提**の差し替えである。",
+            "en": "> Migration replaces **assumptions**, not just software: latency, blast radius, and observability contracts all shift."
+          }
+        },
+        {
+          "type": "callout",
+          "variant": "info",
+          "title": { "zh-CN": "提示", "ja": "ヒント", "en": "Tip" },
+          "body": {
+            "zh-CN": "`callout` 支持 info / tip / success / warning / danger 五种 variant。",
+            "ja": "`callout` は 5 種類の variant を持つ。",
+            "en": "`callout` supports five variants: info, tip, success, warning, danger."
+          }
+        },
+        {
+          "type": "bulletList",
+          "items": [
+            {
+              "zh-CN": "无序列表项 A",
+              "ja": "箇条書き A",
+              "en": "Bullet item A"
+            },
+            {
+              "zh-CN": "无序列表项 B（含 `code`）",
+              "ja": "箇条書き B（`code` 含む）",
+              "en": "Bullet item B with `code`"
+            }
+          ]
+        },
+        {
+          "type": "numberedList",
+          "items": [
+            {
+              "zh-CN": "第一步：生成 `.airp.json`",
+              "ja": "手順1：`.airp.json` を生成",
+              "en": "Step 1: Generate `.airp.json`"
+            },
+            {
+              "zh-CN": "第二步：运行 `validate-airp` 直至 OK",
+              "ja": "手順2：`validate-airp` で OK まで",
+              "en": "Step 2: Run `validate-airp` until OK"
+            },
+            {
+              "zh-CN": "第三步：`/airp-html` 渲染",
+              "ja": "手順3：`/airp-html` でレンダリング",
+              "en": "Step 3: Render with `/airp-html`"
+            }
+          ]
+        },
+        {
+          "type": "checklist",
+          "items": [
+            {
+              "label": {
+                "zh-CN": "Schema 校验通过",
+                "ja": "Schema 検証 OK",
+                "en": "Schema validation passed"
+              },
+              "checked": true,
+              "status": "done"
+            },
+            {
+              "label": {
+                "zh-CN": "金丝雀流量 10%",
+                "ja": "カナリア 10%",
+                "en": "Canary traffic 10%"
+              },
+              "checked": false,
+              "status": "in_progress",
+              "note": {
+                "zh-CN": "预计 2026-06-05 完成",
+                "ja": "2026-06-05 完了予定",
+                "en": "Target 2026-06-05"
+              }
+            },
+            {
+              "label": {
+                "zh-CN": "回滚演练",
+                "ja": "ロールバック演習",
+                "en": "Rollback drill"
+              },
+              "checked": false,
+              "status": "pending"
+            }
+          ]
+        },
+        {
+          "type": "definitionList",
+          "items": [
+            {
+              "term": { "zh-CN": "IR", "ja": "IR", "en": "IR" },
+              "definition": {
+                "zh-CN": "Intermediate Representation：无布局坐标的语义文档。",
+                "ja": "レイアウト座標のないセマンティック文書。",
+                "en": "Semantic document without layout coordinates."
+              }
+            },
+            {
+              "term": { "zh-CN": "SSOT", "ja": "SSOT", "en": "SSOT" },
+              "definition": {
+                "zh-CN": "Single Source of Truth：`airp-document.schema.json`。",
+                "ja": "唯一の真実：`airp-document.schema.json`。",
+                "en": "Single source of truth: `airp-document.schema.json`."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "divider",
+      "label": {
+        "zh-CN": "结构化数据",
+        "ja": "構造化データ",
+        "en": "Structured data"
+      }
+    },
+    {
+      "type": "section",
+      "id": "structured",
+      "title": {
+        "zh-CN": "表格、对比与集合",
+        "ja": "表・比較・コレクション",
+        "en": "Tables, comparison, and collections"
+      },
+      "children": [
+        {
+          "type": "table",
+          "caption": {
+            "zh-CN": "区域延迟对比（虚构 ms）",
+            "ja": "リージョン遅延（架空 ms）",
+            "en": "Regional latency (fictional ms)"
+          },
+          "columns": [
+            {
+              "key": "region",
+              "label": { "zh-CN": "区域", "ja": "リージョン", "en": "Region" },
+              "cellKind": "text"
+            },
+            {
+              "key": "before",
+              "label": { "zh-CN": "迁移前", "ja": "移行前", "en": "Before" },
+              "cellKind": "number",
+              "align": "end"
+            },
+            {
+              "key": "after",
+              "label": { "zh-CN": "迁移后", "ja": "移行後", "en": "After" },
+              "cellKind": "number",
+              "align": "end"
+            },
+            {
+              "key": "status",
+              "label": { "zh-CN": "状态", "ja": "状態", "en": "Status" },
+              "cellKind": "status"
+            }
+          ],
+          "rows": [
+            { "region": "ap-northeast-1", "before": 42, "after": 28, "status": "pass" },
+            { "region": "eu-west-1", "before": 55, "after": 31, "status": "pass" },
+            { "region": "us-east-1", "before": 38, "after": 45, "status": "warning" }
+          ],
+          "footerRow": {
+            "region": { "zh-CN": "全球 P95", "ja": "グローバル P95", "en": "Global P95" },
+            "before": 52,
+            "after": 35,
+            "status": "partial"
+          }
+        },
+        {
+          "type": "comparison",
+          "labelBefore": {
+            "zh-CN": "Kong 插件链",
+            "ja": "Kong プラグイン",
+            "en": "Kong plugins"
+          },
+          "labelAfter": {
+            "zh-CN": "Komorebi 原生策略",
+            "ja": "Komorebi ネイティブ",
+            "en": "Komorebi native policy"
+          },
+          "before": [
+            {
+              "type": "paragraph",
+              "text": {
+                "zh-CN": "Lua 插件串行执行，调试困难。",
+                "ja": "Lua プラグイン直列、デバッグ困難。",
+                "en": "Serial Lua plugins; hard to debug."
+              }
+            }
+          ],
+          "after": [
+            {
+              "type": "paragraph",
+              "text": {
+                "zh-CN": "Rust 中间件 + 声明式路由表，可单元测试。",
+                "ja": "Rust ミドルウェア + 宣言的ルート、単体テスト可。",
+                "en": "Rust middleware + declarative routes; unit-testable."
+              }
+            }
+          ]
+        },
+        {
+          "type": "collection",
+          "variant": "metric",
+          "title": {
+            "zh-CN": "关键指标",
+            "ja": "主要指標",
+            "en": "Key metrics"
+          },
+          "items": [
+            {
+              "title": { "zh-CN": "RPS", "ja": "RPS", "en": "RPS" },
+              "value": 125000,
+              "unit": { "zh-CN": "req/s", "ja": "req/s", "en": "req/s" },
+              "tone": "positive"
+            },
+            {
+              "title": { "zh-CN": "错误率", "ja": "エラー率", "en": "Error rate" },
+              "value": "0.02%",
+              "delta": { "zh-CN": "↓ 0.01%", "ja": "↓ 0.01%", "en": "↓ 0.01%" },
+              "status": "pass"
+            }
+          ]
+        },
+        {
+          "type": "tabs",
+          "panels": [
+            {
+              "label": { "zh-CN": "card", "ja": "card", "en": "card" },
+              "children": [
+                {
+                  "type": "collection",
+                  "variant": "card",
+                  "items": [
+                    {
+                      "title": { "zh-CN": "模块 A", "ja": "モジュール A", "en": "Module A" },
+                      "description": {
+                        "zh-CN": "card variant 展示卡片密度。",
+                        "ja": "card variant のカード密度。",
+                        "en": "Card variant density."
+                      },
+                      "badges": [
+                        {
+                          "label": { "zh-CN": "稳定", "ja": "安定", "en": "Stable" },
+                          "status": "pass"
+                        }
+                      ]
+                    },
+                    {
+                      "title": { "zh-CN": "模块 B", "ja": "モジュール B", "en": "Module B" },
+                      "description": {
+                        "zh-CN": "认证与授权中间件。",
+                        "ja": "認証・認可ミドルウェア。",
+                        "en": "Auth middleware layer."
+                      },
+                      "badges": [
+                        {
+                          "label": { "zh-CN": "Beta", "ja": "Beta", "en": "Beta" },
+                          "status": "partial"
+                        }
+                      ]
+                    },
+                    {
+                      "title": { "zh-CN": "模块 C", "ja": "モジュール C", "en": "Module C" },
+                      "description": {
+                        "zh-CN": "可观测性与指标导出。",
+                        "ja": "可観測性とメトリクス出力。",
+                        "en": "Observability and metrics export."
+                      },
+                      "badges": [
+                        {
+                          "label": { "zh-CN": "新建", "ja": "新規", "en": "New" },
+                          "status": "pending"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "label": { "zh-CN": "chip / compact", "ja": "chip / compact", "en": "chip / compact" },
+              "children": [
+                {
+                  "type": "collection",
+                  "variant": "chip",
+                  "items": [
+                    {
+                      "title": { "zh-CN": "JWT", "ja": "JWT", "en": "JWT" },
+                      "value": "on"
+                    },
+                    {
+                      "title": { "zh-CN": "WAF", "ja": "WAF", "en": "WAF" },
+                      "value": "on"
+                    },
+                    {
+                      "title": { "zh-CN": "Rate Limit", "ja": "Rate Limit", "en": "Rate Limit" },
+                      "value": "500/s"
+                    },
+                    {
+                      "title": { "zh-CN": "CORS", "ja": "CORS", "en": "CORS" },
+                      "value": "strict"
+                    }
+                  ]
+                },
+                {
+                  "type": "spacer",
+                  "size": "sm"
+                },
+                {
+                  "type": "collection",
+                  "variant": "compact",
+                  "items": [
+                    {
+                      "title": { "zh-CN": "构建", "ja": "ビルド", "en": "Build" },
+                      "value": "#4821",
+                      "meta": { "branch": "main" }
+                    },
+                    {
+                      "title": { "zh-CN": "部署", "ja": "デプロイ", "en": "Deploy" },
+                      "value": "v2.4.1",
+                      "meta": { "env": "staging" }
+                    },
+                    {
+                      "title": { "zh-CN": "回滚点", "ja": "ロールバック", "en": "Rollback" },
+                      "value": "v2.3.8",
+                      "meta": { "env": "production" }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "label": { "zh-CN": "panel + stat", "ja": "panel + stat", "en": "panel + stat" },
+              "children": [
+                {
+                  "type": "collection",
+                  "variant": "stat",
+                  "items": [
+                    {
+                      "title": { "zh-CN": "可用性", "ja": "可用性", "en": "Availability" },
+                      "value": "99.95%",
+                      "tone": "positive"
+                    },
+                    {
+                      "title": { "zh-CN": "P95 延迟", "ja": "P95 レイテンシ", "en": "P95 latency" },
+                      "value": "35 ms",
+                      "tone": "positive"
+                    },
+                    {
+                      "title": { "zh-CN": "错误率", "ja": "エラー率", "en": "Error rate" },
+                      "value": "0.02%",
+                      "tone": "neutral"
+                    }
+                  ]
+                },
+                {
+                  "type": "collection",
+                  "variant": "panel",
+                  "items": [
+                    {
+                      "title": { "zh-CN": "健康检查", "ja": "ヘルスチェック", "en": "Health check" },
+                      "description": {
+                        "zh-CN": "panel 内可嵌套其它 block。",
+                        "ja": "panel 内に他 block をネスト可能。",
+                        "en": "Panels may nest other blocks."
+                      },
+                      "children": [
+                        {
+                          "type": "code",
+                          "language": "bash",
+                          "code": "curl -s https://edge.komorebi.example/health"
+                        }
+                      ]
+                    },
+                    {
+                      "title": { "zh-CN": "配置热更新", "ja": "設定ホットリロード", "en": "Config hot reload" },
+                      "description": {
+                        "zh-CN": "无需重启即可生效。",
+                        "ja": "再起動なしで反映。",
+                        "en": "Apply without restart."
+                      },
+                      "children": [
+                        {
+                          "type": "code",
+                          "language": "bash",
+                          "code": "komorebi config reload --route api-gateway"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "label": { "zh-CN": "metric", "ja": "metric", "en": "metric" },
+              "children": [
+                {
+                  "type": "collection",
+                  "variant": "metric",
+                  "title": {
+                    "zh-CN": "流量概览",
+                    "ja": "トラフィック概要",
+                    "en": "Traffic overview"
+                  },
+                  "items": [
+                    {
+                      "title": { "zh-CN": "RPS", "ja": "RPS", "en": "RPS" },
+                      "value": 125000,
+                      "unit": { "zh-CN": "req/s", "ja": "req/s", "en": "req/s" },
+                      "tone": "positive"
+                    },
+                    {
+                      "title": { "zh-CN": "并发连接", "ja": "同時接続", "en": "Concurrent connections" },
+                      "value": 8420,
+                      "unit": { "zh-CN": "conn", "ja": "conn", "en": "conn" },
+                      "delta": { "zh-CN": "↑ 12%", "ja": "↑ 12%", "en": "↑ 12%" }
+                    },
+                    {
+                      "title": { "zh-CN": "带宽", "ja": "帯域", "en": "Bandwidth" },
+                      "value": "3.2",
+                      "unit": { "zh-CN": "Gbps", "ja": "Gbps", "en": "Gbps" },
+                      "status": "pass"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "keyValueList",
+          "layout": "stacked",
+          "items": [
+            {
+              "key": { "zh-CN": "项目负责人", "ja": "担当", "en": "Owner" },
+              "value": "Team Edge / 佐藤 (虚构)"
+            },
+            {
+              "key": { "zh-CN": "环境", "ja": "環境", "en": "Environment" },
+              "value": "`staging` → `production`"
+            }
+          ]
+        },
+        {
+          "type": "statusBoard",
+          "items": [
+            {
+              "label": { "zh-CN": "结构校验", "ja": "構造検証", "en": "Schema validation" },
+              "status": "pass",
+              "detail": {
+                "zh-CN": "validate-airp 输出 OK",
+                "ja": "validate-airp が OK",
+                "en": "validate-airp prints OK"
+              }
+            },
+            {
+              "label": { "zh-CN": "集成测试", "ja": "結合テスト", "en": "Integration tests" },
+              "status": "partial",
+              "detail": {
+                "zh-CN": "2 项 flaky，已隔离",
+                "ja": "flaky 2 件、隔離済",
+                "en": "2 flaky cases quarantined"
+              }
+            },
+            {
+              "label": { "zh-CN": "合规扫描", "ja": "コンプライアンス", "en": "Compliance scan" },
+              "status": "fail",
+              "detail": {
+                "zh-CN": "1 个高危 CVE 待补丁",
+                "ja": "高危 CVE 1 件、パッチ待ち",
+                "en": "1 high CVE awaiting patch"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "code-diagrams",
+      "title": {
+        "zh-CN": "代码、文件与图表",
+        "ja": "コード・ファイル・図",
+        "en": "Code, files, and diagrams"
+      },
+      "children": [
+        {
+          "type": "code",
+          "language": "rust",
+          "filename": "edge/src/policy.rs",
+          "code": "pub fn apply_rate_limit(ctx: &mut Context) -> Result<()> {\n    let key = ctx.client_id();\n    limiter.check(key, 1000)?;\n    Ok(())\n}",
+          "highlightLines": [2, 3],
+          "maxLines": 20
+        },
+        {
+          "type": "codeDiff",
+          "filename": "config/routes.yaml",
+          "language": "yaml",
+          "before": "upstream: kong-cluster\nplugins:\n  - rate-limiting",
+          "after": "upstream: komorebi-edge\npolicies:\n  - native-rate-limit"
+        },
+        {
+          "type": "fileTree",
+          "caption": {
+            "zh-CN": "迁移涉及目录（虚构）",
+            "ja": "移行対象ディレクトリ（架空）",
+            "en": "Touched directories (fictional)"
+          },
+          "root": {
+            "name": "komorebi/",
+            "children": [
+              {
+                "name": "edge/",
+                "change": "added",
+                "annotation": {
+                  "zh-CN": "新网关核心",
+                  "ja": "新ゲートウェイ",
+                  "en": "New gateway core"
+                },
+                "children": [
+                  { "name": "Cargo.toml", "change": "added" }
+                ]
+              },
+              {
+                "name": "legacy/kong/",
+                "change": "deleted",
+                "annotation": {
+                  "zh-CN": "退役",
+                  "ja": "廃止",
+                  "en": "Retired"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "fileChangeList",
+          "items": [
+            {
+              "path": "edge/src/main.rs",
+              "change": "added",
+              "note": {
+                "zh-CN": "入口与监听绑定",
+                "ja": "エントリとバインド",
+                "en": "Entry and listener bind"
+              },
+              "sizeAfter": "4.2 KB"
+            },
+            {
+              "path": "deploy/kong.yml",
+              "change": "deleted",
+              "sizeBefore": "12 KB"
+            },
+            {
+              "path": "docs/runbook.md",
+              "change": "modified",
+              "sizeBefore": "8 KB",
+              "sizeAfter": "11 KB"
+            }
+          ]
+        },
+        {
+          "type": "mermaid",
+          "diagramKind": "sequence",
+          "title": {
+            "zh-CN": "金丝雀切换序列（虚构）",
+            "ja": "カナリア切替シーケンス",
+            "en": "Canary cutover sequence"
+          },
+          "source": "sequenceDiagram\n  participant Ops\n  participant LB as Load Balancer\n  participant Old as Kong\n  participant New as Komorebi\n  Ops->>LB: Set weight 10% New\n  LB->>New: Route sample traffic\n  Ops->>Ops: Watch error budget\n  Ops->>LB: Promote 100% or rollback",
+          "complexity": "medium"
+        },
+        {
+          "type": "flowSteps",
+          "steps": [
+            {
+              "title": { "zh-CN": "影子流量", "ja": "シャドウ", "en": "Shadow traffic" },
+              "description": {
+                "zh-CN": "复制请求至 Komorebi，不返回客户端。",
+                "ja": "Komorebi に複製、クライアントには返さない。",
+                "en": "Mirror requests to Komorebi without client response."
+              },
+              "status": "done"
+            },
+            {
+              "title": { "zh-CN": "金丝雀", "ja": "カナリア", "en": "Canary" },
+              "description": {
+                "zh-CN": "10% 生产流量。",
+                "ja": "本番 10%。",
+                "en": "10% production traffic."
+              },
+              "status": "in_progress"
+            },
+            {
+              "title": { "zh-CN": "全量", "ja": "全量", "en": "Full cutover" },
+              "status": "pending"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "governance",
+      "title": {
+        "zh-CN": "治理块",
+        "ja": "ガバナンス",
+        "en": "Governance blocks"
+      },
+      "children": [
+        {
+          "type": "group",
+          "id": "gov-group",
+          "title": {
+            "zh-CN": "决策与风险组",
+            "ja": "決定・リスクグループ",
+            "en": "Decision and risk group"
+          },
+          "children": [
+            {
+              "type": "decision",
+              "id": "dec-001",
+              "title": {
+                "zh-CN": "选用 Rust 而非 Go 实现 Edge",
+                "ja": "Edge を Go ではなく Rust に",
+                "en": "Implement Edge in Rust over Go"
+              },
+              "context": {
+                "zh-CN": "团队具备 Rust 经验；需极致尾延迟。",
+                "ja": "Rust 経験あり。尾遅延を最小化。",
+                "en": "Team Rust experience; need minimal tail latency."
+              },
+              "options": [
+                {
+                  "label": { "zh-CN": "Rust", "ja": "Rust", "en": "Rust" },
+                  "pros": { "zh-CN": "零 GC 停顿", "ja": "GC なし", "en": "No GC pauses" },
+                  "cons": { "zh-CN": "编译时间较长", "ja": "ビルド時間", "en": "Longer compile times" }
+                },
+                {
+                  "label": { "zh-CN": "Go", "ja": "Go", "en": "Go" },
+                  "pros": { "zh-CN": "招聘面更广", "ja": "採用しやすい", "en": "Easier hiring" },
+                  "cons": { "zh-CN": "尾延迟波动", "ja": "尾遅延のばらつき", "en": "Tail latency variance" }
+                }
+              ],
+              "chosen": { "zh-CN": "Rust", "ja": "Rust", "en": "Rust" },
+              "rationale": {
+                "zh-CN": "P99 预算 30ms，Go 在高压下不满足 SLO。",
+                "ja": "P99 30ms 予算で Go は SLO 未達。",
+                "en": "P99 budget 30ms; Go missed SLO under load test."
+              },
+              "status": "accepted"
+            },
+            {
+              "type": "risk",
+              "id": "risk-001",
+              "title": {
+                "zh-CN": "双栈配置漂移",
+                "ja": "二重スタック設定ドリフト",
+                "en": "Dual-stack config drift"
+              },
+              "description": {
+                "zh-CN": "Kong 与 Komorebi 并行期间，路由表可能不一致。",
+                "ja": "並行期間中、ルート定義が不一致化しうる。",
+                "en": "During parallel operation, route tables may diverge."
+              },
+              "severity": "high",
+              "likelihood": "possible",
+              "mitigation": {
+                "zh-CN": "GitOps 单一仓库 + CI diff 门禁。",
+                "ja": "GitOps 単一リポ + CI diff ゲート。",
+                "en": "Single GitOps repo with CI diff gate."
+              },
+              "owner": "platform-edge",
+              "status": "open"
+            }
+          ]
+        },
+        {
+          "type": "assumption",
+          "statement": {
+            "zh-CN": "假设：所有北向 API 均为 REST/JSON，无 gRPC 透传需求。",
+            "ja": "前提：北向 API は REST/JSON のみ、gRPC 透過なし。",
+            "en": "Assumption: all northbound APIs are REST/JSON; no gRPC passthrough."
+          },
+          "validated": false
+        },
+        {
+          "type": "constraint",
+          "rule": {
+            "zh-CN": "生产变更窗口：每周二 02:00–06:00 UTC（硬约束）。",
+            "ja": "本番変更：毎火 02:00–06:00 UTC（非交渉）。",
+            "en": "Production change window: Tue 02:00–06:00 UTC (hard)."
+          },
+          "scope": { "zh-CN": "全球", "ja": "グローバル", "en": "Global" },
+          "nonNegotiable": true
+        },
+        {
+          "type": "openQuestion",
+          "question": {
+            "zh-CN": "是否在 Q3 完全下线 Kong 管理面 API？",
+            "ja": "Q3 に Kong 管理 API を完全停止するか？",
+            "en": "Decommission Kong admin API entirely in Q3?"
+          },
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "planning",
+      "title": {
+        "zh-CN": "计划、需求与测试",
+        "ja": "計画・要件・テスト",
+        "en": "Planning, requirements, and tests"
+      },
+      "children": [
+        {
+          "type": "timeline",
+          "events": [
+            {
+              "date": "2026-05-20",
+              "title": { "zh-CN": "影子流量启动", "ja": "シャドウ開始", "en": "Shadow traffic on" },
+              "description": {
+                "zh-CN": "仅观测，不影响用户。",
+                "ja": "観測のみ。",
+                "en": "Observe only; no user impact."
+              },
+              "status": "done"
+            },
+            {
+              "date": "2026-06-04",
+              "title": { "zh-CN": "示例报告生成", "ja": "サンプル報告生成", "en": "Sample report generated" },
+              "status": "done"
+            },
+            {
+              "date": "2026-06-10",
+              "title": { "zh-CN": "计划全量切换", "ja": "全量切替予定", "en": "Planned full cutover" },
+              "status": "pending"
+            }
+          ]
+        },
+        {
+          "type": "roadmap",
+          "phases": [
+            {
+              "title": { "zh-CN": "Phase 1 — 基础", "ja": "Phase 1 — 基盤", "en": "Phase 1 — Foundation" },
+              "timeframe": { "zh-CN": "2026 Q2", "ja": "2026 Q2", "en": "2026 Q2" },
+              "goals": [
+                {
+                  "zh-CN": "完成 Edge MVP 与影子流量",
+                  "ja": "Edge MVP とシャドウ",
+                  "en": "Edge MVP and shadow traffic"
+                }
+              ],
+              "status": "done"
+            },
+            {
+              "title": { "zh-CN": "Phase 2 — 生产", "ja": "Phase 2 — 本番", "en": "Phase 2 — Production" },
+              "timeframe": { "zh-CN": "2026 Q3", "ja": "2026 Q3", "en": "2026 Q3" },
+              "goals": [
+                {
+                  "zh-CN": "金丝雀 → 全量；下线 Kong",
+                  "ja": "カナリア → 全量、Kong 廃止",
+                  "en": "Canary → full; retire Kong"
+                }
+              ],
+              "status": "in_progress"
+            }
+          ]
+        },
+        {
+          "type": "requirementTrace",
+          "items": [
+            {
+              "reqId": "REQ-EDGE-01",
+              "summary": {
+                "zh-CN": "P99 延迟 < 30ms",
+                "ja": "P99 < 30ms",
+                "en": "P99 latency < 30ms"
+              },
+              "status": "pass",
+              "evidence": {
+                "zh-CN": "压测报告 #882（虚构）",
+                "ja": "負荷試験 #882",
+                "en": "Load test report #882 (fictional)"
+              }
+            },
+            {
+              "reqId": "REQ-EDGE-02",
+              "summary": {
+                "zh-CN": "支持 WAF 规则热更新",
+                "ja": "WAF ルールのホット更新",
+                "en": "Hot-reload WAF rules"
+              },
+              "status": "partial",
+              "gap": {
+                "zh-CN": "管理 API 尚未实现",
+                "ja": "管理 API 未実装",
+                "en": "Admin API not implemented yet"
+              }
+            }
+          ]
+        },
+        {
+          "type": "testResult",
+          "suites": [
+            {
+              "name": "unit-edge",
+              "passed": 412,
+              "failed": 0,
+              "skipped": 3
+            },
+            {
+              "name": "integration-gateway",
+              "passed": 89,
+              "failed": 2,
+              "skipped": 1,
+              "notes": {
+                "zh-CN": "2 失败与旧 Kong 路由缓存有关",
+                "ja": "2 失敗は Kong キャッシュ由来",
+                "en": "2 failures tied to legacy Kong route cache"
+              }
+            }
+          ]
+        },
+        {
+          "type": "apiInventory",
+          "endpoints": [
+            {
+              "method": "GET",
+              "path": "/health",
+              "summary": {
+                "zh-CN": "健康检查",
+                "ja": "ヘルスチェック",
+                "en": "Health check"
+              },
+              "status": "pass"
+            },
+            {
+              "method": "POST",
+              "path": "/v1/routes",
+              "summary": {
+                "zh-CN": "声明式路由注册",
+                "ja": "宣言的ルート登録",
+                "en": "Declarative route registration"
+              },
+              "status": "in_progress"
+            },
+            {
+              "method": "DELETE",
+              "path": "/v1/routes/{id}",
+              "summary": {
+                "zh-CN": "路由删除",
+                "ja": "ルート削除",
+                "en": "Route deletion"
+              },
+              "status": "pending"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "references",
+      "title": {
+        "zh-CN": "引用、媒体与组合",
+        "ja": "引用・メディア・合成",
+        "en": "References, media, and composition"
+      },
+      "children": [
+        {
+          "type": "linkList",
+          "title": {
+            "zh-CN": "相关链接",
+            "ja": "関連リンク",
+            "en": "Related links"
+          },
+          "links": [
+            {
+              "href": "https://json-schema.org/",
+              "label": { "zh-CN": "JSON Schema", "ja": "JSON Schema", "en": "JSON Schema" },
+              "description": {
+                "zh-CN": "AIRP 结构校验基础",
+                "ja": "AIRP 構造検証の基盤",
+                "en": "Foundation for AIRP structural validation"
+              }
+            },
+            {
+              "href": "https://mermaid.js.org/",
+              "label": { "zh-CN": "Mermaid", "ja": "Mermaid", "en": "Mermaid" },
+              "description": {
+                "zh-CN": "图表块渲染源",
+                "ja": "図ブロックのソース",
+                "en": "Diagram block rendering source"
+              }
+            }
+          ]
+        },
+        {
+          "type": "glossary",
+          "terms": [
+            {
+              "term": { "zh-CN": "Komorebi", "ja": "Komorebi", "en": "Komorebi" },
+              "definition": {
+                "zh-CN": "本示例中虚构的边缘网关产品名（木漏れ日）。",
+                "ja": "本サンプルの架空エッジ GW 名。",
+                "en": "Fictional edge gateway product name in this sample."
+              }
+            },
+            {
+              "term": { "zh-CN": "金丝雀", "ja": "カナリア", "en": "Canary" },
+              "definition": {
+                "zh-CN": "将少量真实流量导向新版本以验证行为。",
+                "ja": "少量の本番トラフィックで新版を検証。",
+                "en": "Route a small share of real traffic to the new version."
+              }
+            }
+          ]
+        },
+        {
+          "type": "citation",
+          "items": [
+            {
+              "id": "cite-1",
+              "source": "Internal Design Doc v3.2 (fictional)",
+              "locator": "§4.2 Rate limiting"
+            },
+            {
+              "id": "cite-2",
+              "source": "SRE Runbook — Edge Migration",
+              "locator": "page 12"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "https://placehold.co/640x360/png?text=AIRP+Sample",
+          "alt": {
+            "zh-CN": "占位示意图：Komorebi 控制台",
+            "ja": "プレースホルダ：Komorebi コンソール",
+            "en": "Placeholder: Komorebi console"
+          },
+          "caption": {
+            "zh-CN": "虚构 UI 截图（placeholder）",
+            "ja": "架空 UI（placeholder）",
+            "en": "Fictional UI screenshot (placeholder)"
+          }
+        },
+        {
+          "type": "embed",
+          "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          "title": {
+            "zh-CN": "嵌入示例（可替换为真实演示视频）",
+            "ja": "埋め込みサンプル",
+            "en": "Embed sample (replace with real demo)"
+          }
+        },
+        {
+          "type": "collapsible",
+          "summary": {
+            "zh-CN": "展开：长代码片段（code + codeDiff unified）",
+            "ja": "展開：長いコード",
+            "en": "Expand: long code samples"
+          },
+          "defaultOpen": false,
+          "children": [
+            {
+              "type": "code",
+              "language": "typescript",
+              "filename": "validate-sample.ts",
+              "code": "import { readFileSync } from 'node:fs';\nimport { validateAirpDocument } from './airp-schema';\n\nconst raw = readFileSync('.docs/airp/sample.airp.json', 'utf8');\nconst doc = JSON.parse(raw);\nconst result = validateAirpDocument(doc);\nif (!result.ok) throw new Error(result.message);\nconsole.log('OK');",
+              "maxLines": 8
+            },
+            {
+              "type": "codeDiff",
+              "filename": "policy.diff",
+              "language": "diff",
+              "unified": "@@ -1,3 +1,3 @@\n-upstream: kong\n+upstream: komorebi\n rate_limit: 1000"
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "variant": "success",
+          "title": { "zh-CN": "成功", "ja": "成功", "en": "Success" },
+          "body": {
+            "zh-CN": "若你看到本段，说明 `callout` variant=success 已渲染。",
+            "ja": "success variant の callout。",
+            "en": "If you see this, `callout` variant=success rendered."
+          }
+        },
+        {
+          "type": "callout",
+          "variant": "warning",
+          "body": {
+            "zh-CN": "无标题 warning callout。",
+            "ja": "タイトルなし warning。",
+            "en": "Warning callout without title."
+          }
+        },
+        {
+          "type": "callout",
+          "variant": "danger",
+          "title": { "zh-CN": "危险", "ja": "危険", "en": "Danger" },
+          "body": {
+            "zh-CN": "虚构：生产密钥切勿写入 `.airp.json`。",
+            "ja": "本番秘密を `.airp.json` に書かない。",
+            "en": "Never put production secrets in `.airp.json`."
+          }
+        }
+      ]
+    },
+    {
+      "type": "spacer",
+      "size": "lg"
+    },
+    {
+      "type": "appendix",
+      "title": {
+        "zh-CN": "附录 A — Block 类型索引",
+        "ja": "付録 A — ブロック一覧",
+        "en": "Appendix A — Block type index"
+      },
+      "children": [
+        {
+          "type": "paragraph",
+          "text": {
+            "zh-CN": "本示例覆盖的 block `type`（46）：hero, section, group, divider, spacer, heading, paragraph, lead, pullQuote, blockquote, callout, bulletList, numberedList, checklist, definitionList, table, comparison, collection, keyValueList, statusBoard, code, codeDiff, fileTree, fileChangeList, mermaid, architectureOverview, flowSteps, decision, risk, assumption, constraint, openQuestion, timeline, roadmap, requirementTrace, testResult, apiInventory, linkList, glossary, citation, image, embed, collapsible, tabs, appendix, agentNote。",
+            "ja": "本サンプルがカバーする 46 種の block type を列挙（本文参照）。",
+            "en": "This sample covers all 46 block types listed in the prose above."
+          }
+        }
+      ]
+    },
+    {
+      "type": "agentNote",
+      "visible": false,
+      "text": "sample.airp.json: showcase all AIRP v1.0.0 block types with fictional Komorebi Gateway narrative. Locales zh-CN/ja/en. Validated via validate-airp.mjs. embed URL is placeholder; image uses placehold.co."
+    }
+  ]
+}

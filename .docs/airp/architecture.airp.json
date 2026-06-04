@@ -4,33 +4,37 @@
     "title": {
       "zh-CN": "AIRP 项目架构与核心原理",
       "ja": "AIRP プロジェクトアーキテクチャとコア原理",
-      "fr": "Architecture et principes fondamentaux du projet AIRP",
       "en": "AIRP Project Architecture and Core Principles"
     },
     "subtitle": {
-      "zh-CN": "内容协议（SSOT）与呈现层解耦的技术报告",
-      "ja": "コンテンツプロトコル（SSOT）とプレゼンテーション層の分離",
-      "fr": "Rapport technique : protocole de contenu (SSOT) découplé de la présentation",
-      "en": "Technical report: content protocol (SSOT) decoupled from presentation"
+      "zh-CN": "内容协议（SSOT）、呈现层解耦与语言/导出统一推导",
+      "ja": "コンテンツプロトコル（SSOT）、プレゼン層分離、言語・エクスポート統一",
+      "en": "Content SSOT, presentation decoupling, unified locale/export resolution"
     },
     "kind": "architecture",
     "createdAt": "2026-06-03T12:00:00.000Z",
-    "updatedAt": "2026-06-03T14:00:00.000Z",
+    "updatedAt": "2026-06-04T18:00:00.000Z",
     "authors": ["Cursor Agent"],
-    "tags": ["airp", "architecture", "renderer", "skills", "i18n"],
+    "tags": ["airp", "architecture", "renderer", "skills", "i18n", "locale", "export", "markdown"],
     "sourceRefs": [
       { "type": "path", "value": "README.md" },
       { "type": "path", "value": "airp-document.schema.json" },
       { "type": "path", "value": "renderer/src/lib/airp-schema.ts" },
       { "type": "path", "value": "renderer/src/components/block-renderer.tsx" },
+      { "type": "path", "value": "renderer/src/lib/locale-resolution.ts" },
+      { "type": "path", "value": "renderer/src/config/renderer-config.ts" },
+      { "type": "path", "value": "renderer/src/pipeline/types.ts" },
+      { "type": "path", "value": "renderer/scripts/render-html.ts" },
+      { "type": "path", "value": "renderer/scripts/render-markdown.ts" },
       { "type": "path", "value": "scripts/package-skills.mjs" },
-      { "type": "path", "value": "scripts/vendor-airp-assets.mjs" },
-      { "type": "path", "value": "skills/airp/SKILL.md" }
+      { "type": "path", "value": "skills/airp/SKILL.md" },
+      { "type": "path", "value": "skills/airp-html/SKILL.md" },
+      { "type": "path", "value": "skills/airp-markdown/SKILL.md" }
     ]
   },
   "i18n": {
     "defaultLocale": "zh-CN",
-    "locales": ["zh-CN", "ja", "fr", "en"]
+    "locales": ["zh-CN", "ja", "en"]
   },
   "blocks": [
     {
@@ -40,14 +44,12 @@
           "title": {
             "zh-CN": "协议版本",
             "ja": "プロトコル版",
-            "fr": "Version du protocole",
             "en": "Protocol version"
           },
           "value": "1.0.0",
           "description": {
             "zh-CN": "schemaVersion 固定常量",
             "ja": "schemaVersion 固定定数",
-            "fr": "Constante schemaVersion",
             "en": "Fixed schemaVersion constant"
           }
         },
@@ -55,14 +57,12 @@
           "title": {
             "zh-CN": "Block 类型",
             "ja": "ブロック種別",
-            "fr": "Types de blocs",
             "en": "Block types"
           },
           "value": 46,
           "description": {
             "zh-CN": "discriminator 联合，覆盖报告常见语义块",
             "ja": "discriminator ユニオンで報告の主要セマンティクスをカバー",
-            "fr": "Union discriminée couvrant les blocs sémantiques courants",
             "en": "Discriminated union covering common report semantics"
           }
         },
@@ -70,30 +70,26 @@
           "title": {
             "zh-CN": "交付技能",
             "ja": "配布スキル",
-            "fr": "Skills livrés",
             "en": "Shipped skills"
           },
-          "value": 3,
+          "value": 4,
           "description": {
-            "zh-CN": "/airp · /airp-html · /airp-dashboard",
-            "ja": "/airp · /airp-html · /airp-dashboard",
-            "fr": "/airp · /airp-html · /airp-dashboard",
-            "en": "/airp · /airp-html · /airp-dashboard"
+            "zh-CN": "/airp · /airp-html · /airp-markdown · /airp-dashboard",
+            "ja": "/airp · /airp-html · /airp-markdown · /airp-dashboard",
+            "en": "/airp · /airp-html · /airp-markdown · /airp-dashboard"
           }
         },
         {
           "title": {
-            "zh-CN": "核心栈",
-            "ja": "コアスタック",
-            "fr": "Stack principale",
-            "en": "Core stack"
+            "zh-CN": "导出目标",
+            "ja": "エクスポート先",
+            "en": "Export targets"
           },
-          "value": "React 19",
+          "value": "HTML + MD",
           "description": {
-            "zh-CN": "Vite 7 + Zod 4 + Mermaid 11 渲染器",
-            "ja": "Vite 7 + Zod 4 + Mermaid 11 レンダラー",
-            "fr": "Renderer Vite 7 + Zod 4 + Mermaid 11",
-            "en": "Renderer: Vite 7 + Zod 4 + Mermaid 11"
+            "zh-CN": "pipeline 双 backend；PDF/Excel 规划中",
+            "ja": "pipeline 二 backend；PDF/Excel は計画中",
+            "en": "Dual pipeline backends; PDF/Excel planned"
           }
         }
       ],
@@ -102,7 +98,6 @@
           "label": {
             "zh-CN": "架构报告",
             "ja": "アーキテクチャ報告",
-            "fr": "Rapport d'architecture",
             "en": "Architecture report"
           },
           "tone": "accent"
@@ -111,17 +106,15 @@
           "label": {
             "zh-CN": "可校验",
             "ja": "検証可能",
-            "fr": "Validable",
             "en": "Validatable"
           },
           "status": "pass"
         },
         {
           "label": {
-            "zh-CN": "四语",
-            "ja": "4言語",
-            "fr": "4 langues",
-            "en": "4 locales"
+            "zh-CN": "三语",
+            "ja": "3言語",
+            "en": "3 locales"
           },
           "tone": "neutral"
         }
@@ -130,10 +123,9 @@
     {
       "type": "lead",
       "text": {
-        "zh-CN": "**AIRP（AI Report Protocol）** 将 Agent 产出的技术说明约束为可校验的 `*.airp.json` 语义中间表示（IR），再由独立 **Renderer** 派生 HTML 等可读制品。本仓库为协议参考实现：根目录 JSON Schema 为唯一结构真相源（SSOT），`renderer/` 负责解析与呈现，`skills/` 将生成、静态导出与本地 Dashboard 打包为可安装的 Cursor 技能。",
-        "ja": "**AIRP（AI Report Protocol）** は Agent の技術説明を検証可能な `*.airp.json` セマンティック IR に拘束し、独立した **Renderer** が HTML などの可読成果物を生成します。本リポジトリは参照実装です。ルートの JSON Schema が SSOT、`renderer/` が解析と表示、`skills/` が生成・静的エクスポート・Dashboard を Cursor スキルとして配布します。",
-        "fr": "**AIRP (AI Report Protocol)** contraint les livrables techniques des agents en IR sémantique `*.airp.json` validable, puis un **Renderer** indépendant produit HTML et autres formats. Ce dépôt est l'implémentation de référence : JSON Schema racine comme SSOT, `renderer/` pour parse et rendu, `skills/` pour génération, export statique et Dashboard Cursor installables.",
-        "en": "**AIRP (AI Report Protocol)** constrains agent technical output into validatable semantic IR as `*.airp.json`, then an independent **Renderer** derives HTML and other readable artifacts. This repo is the reference implementation: root JSON Schema is the SSOT, `renderer/` parses and presents, and `skills/` package generation, static export, and a local Dashboard as installable Cursor skills."
+        "zh-CN": "**AIRP（AI Report Protocol）** 将 Agent 产出的技术说明约束为可校验的 `*.airp.json` 语义中间表示（IR），再由独立 **Renderer** 派生 HTML（阅读/演示）与 Markdown（文档工作流）。本仓库为协议参考实现：根目录 JSON Schema 为结构 SSOT；`renderer/` 通过 `pipeline/` 编排解析与多 backend 导出；`skills/` 将生成、静态 HTML、Markdown 与本地 Dashboard 打包为可安装的 Cursor 技能。语言与导出行为由 **统一推导引擎**（`locale-resolution.ts`）收敛，避免 Dashboard、SSR 与 runtime 各自实现 fallback。",
+        "ja": "**AIRP（AI Report Protocol）** は Agent の技術説明を検証可能な `*.airp.json` セマンティック IR に拘束し、独立 **Renderer** が HTML（閲覧）と Markdown（ドキュメント）を生成します。本リポジトリは参照実装：ルート JSON Schema が SSOT、`renderer/` の `pipeline/` が解析と複数 backend を編成、`skills/` が生成・HTML・Markdown・Dashboard を Cursor スキルとして配布します。言語・エクスポートは **統一 resolver**（`locale-resolution.ts`）に集約し、Dashboard/SSR/runtime の fallback 分散を防ぎます。",
+        "en": "**AIRP (AI Report Protocol)** constrains agent technical output into validatable semantic IR as `*.airp.json`, then an independent **Renderer** derives HTML (reading/presentation) and Markdown (documentation workflows). This repo is the reference implementation: root JSON Schema is the structural SSOT; `renderer/` orchestrates parsing and multi-backend export via `pipeline/`; `skills/` package generation, static HTML, Markdown, and a local Dashboard as installable Cursor skills. Locale and export behavior converge in a **unified resolution engine** (`locale-resolution.ts`) so Dashboard, SSR, and runtime do not each implement fallback chains."
       }
     },
     {
@@ -144,10 +136,9 @@
         "title": {
           "zh-CN": "仓库模块关系",
           "ja": "リポジトリモジュール関係",
-          "fr": "Relations entre modules du dépôt",
           "en": "Repository module relationships"
         },
-        "source": "flowchart TB\n  subgraph content[\"Content SSOT\"]\n    SCH[\"airp-document.schema.json\"]\n    ZOD[\"renderer airp-schema Zod\"]\n  end\n  subgraph produce[\"Produce and validate\"]\n    SK1[\"/airp Skill\"]\n    VAL[\"validate-airp.mjs\"]\n  end\n  subgraph present[\"Presentation\"]\n    REN[\"renderer React\"]\n    HTML[\"/airp-html\"]\n    DASH[\"/airp-dashboard\"]\n  end\n  AG[\"AI Agent\"] --> SK1\n  SK1 --> DOC[\"*.airp.json\"]\n  DOC --> VAL\n  SCH -.-> SK1\n  ZOD --> VAL\n  DOC --> REN\n  REN --> HTML\n  REN --> DASH\n  PKG[\"package-skills.mjs\"] --> REN\n  PKG --> VAL\n  VND[\"vendor-airp-assets.mjs\"] --> HTML\n  VND --> DASH"
+        "source": "flowchart TB\n  subgraph content[\"Content SSOT\"]\n    SCH[\"airp-document.schema.json\"]\n    ZOD[\"renderer airp-schema Zod\"]\n  end\n  subgraph produce[\"Produce and validate\"]\n    SK1[\"/airp Skill\"]\n    VAL[\"validate-airp\"]\n  end\n  subgraph present[\"Presentation pipeline\"]\n    PIPE[\"pipeline/render-document\"]\n    HTML_BE[\"backends/html\"]\n    MD_BE[\"backends/markdown\"]\n    RES[\"locale-resolution\"]\n  end\n  subgraph deliver[\"Deliver skills\"]\n    SKH[\"/airp-html\"]\n    SKM[\"/airp-markdown\"]\n    SKD[\"/airp-dashboard\"]\n  end\n  AG[\"AI Agent\"] --> SK1\n  SK1 --> DOC[\"*.airp.json\"]\n  DOC --> VAL\n  SCH -.-> SK1\n  ZOD --> VAL\n  DOC --> PIPE\n  RES --> PIPE\n  PIPE --> HTML_BE\n  PIPE --> MD_BE\n  HTML_BE --> SKH\n  MD_BE --> SKM\n  HTML_BE --> SKD\n  PKG[\"package-skills.mjs\"] --> PIPE\n  PKG --> VAL\n  VND[\"vendor-airp-assets.mjs\"] --> SKH\n  VND --> SKM\n  VND --> SKD"
       },
       "modules": [
         {
@@ -155,53 +146,55 @@
           "description": {
             "zh-CN": "顶层 `additionalProperties: false`；`blocks[]` 以 `type` 判别；无布局坐标。生成与演进均以此为准。",
             "ja": "トップレベル `additionalProperties: false`；`blocks[]` は `type` で判別。レイアウト座標なし。生成・進化の基準。",
-            "fr": "`additionalProperties: false` au sommet ; `blocks[]` discriminés par `type` ; pas de coordonnées de mise en page. SSOT structurel.",
             "en": "Top-level `additionalProperties: false`; `blocks[]` discriminated by `type`; no layout coordinates. Structural SSOT for generation and evolution."
           }
         },
         {
           "title": "renderer/",
           "description": {
-            "zh-CN": "Zod 递归 `blockSchema` 镜像协议；`block-renderer.tsx` 映射 React 组件；支持 i18n、主题、TOC、Mermaid（ELK）与 SSR 静态 HTML。",
-            "ja": "Zod 再帰 `blockSchema` がプロトコルを反映；`block-renderer.tsx` が React にマップ。i18n、テーマ、TOC、Mermaid（ELK）、SSR 静的 HTML。",
-            "fr": "Zod récursif `blockSchema` ; `block-renderer.tsx` vers React ; i18n, thèmes, TOC, Mermaid (ELK), HTML statique SSR.",
-            "en": "Recursive Zod `blockSchema` mirrors the protocol; `block-renderer.tsx` maps to React; i18n, themes, TOC, Mermaid (ELK), SSR static HTML."
+            "zh-CN": "Zod `blockSchema` 镜像协议；`block-renderer.tsx` 映射 React；`pipeline/` 统一加载与导出；`backends/html` 与 `backends/markdown` 分离呈现逻辑；`locale-resolution.ts` 统一语言推导。",
+            "ja": "Zod `blockSchema` がプロトコルを反映；`pipeline/` が読込・エクスポートを統一；HTML/Markdown backend 分離；`locale-resolution.ts` で言語を一元化。",
+            "en": "Zod `blockSchema` mirrors the protocol; `pipeline/` unifies load and export; separate `backends/html` and `backends/markdown`; `locale-resolution.ts` centralizes locale logic."
           }
         },
         {
           "title": "skills/airp",
           "description": {
-            "zh-CN": "附载 schema 与 esbuild 打包的 `validate-airp.mjs`；`/airp` 工作流：选块 → 写 JSON → 必须 OK。",
-            "ja": "schema コピーと esbuild 版 `validate-airp.mjs`。`/airp`：ブロック選択 → JSON 作成 → OK 必須。",
-            "fr": "Copie du schema et `validate-airp.mjs` bundlé ; workflow `/airp` : blocs → JSON → OK obligatoire.",
-            "en": "Bundled schema copy and `validate-airp.mjs`; `/airp` workflow: pick blocks → write JSON → must print OK."
+            "zh-CN": "附载 schema 与 esbuild 打包的 `validate-airp`；`/airp`：选块 → 写 JSON → 必须 OK。",
+            "ja": "schema コピーと esbuild 版 validate。`/airp`：ブロック選択 → JSON → OK 必須。",
+            "en": "Bundled schema and `validate-airp`; `/airp` workflow: pick blocks → write JSON → must print OK."
           }
         },
         {
           "title": "skills/airp-html",
           "description": {
-            "zh-CN": "vendor 的 `renderer/dist` + `render-static.mjs`：内联 CSS/chrome 的单文件 HTML。",
-            "ja": "vendor 済み `renderer/dist` と `render-static.mjs`：CSS/chrome インラインの単一 HTML。",
-            "fr": "`renderer/dist` vendored + `render-static.mjs` : HTML monofichier avec CSS/chrome inlinés.",
-            "en": "Vendored `renderer/dist` + `render-static.mjs`: single-file HTML with inlined CSS/chrome."
+            "zh-CN": "vendor `renderer/dist` + `render-html.mjs`：`--locale-mode all|single`，fail-closed 校验。",
+            "ja": "vendor `renderer/dist` + `render-html.mjs`：`--locale-mode all|single`、fail-closed。",
+            "en": "Vendored `renderer/dist` + `render-html.mjs`: `--locale-mode all|single`, fail-closed validation."
+          }
+        },
+        {
+          "title": "skills/airp-markdown",
+          "description": {
+            "zh-CN": "vendor + `render-markdown.mjs`：CLI `--locale` 必传；Skill 可省略语言并由 `doc.i18n.defaultLocale` 补全。",
+            "ja": "vendor + `render-markdown.mjs`：CLI `--locale` 必須；Skill は defaultLocale で補完可。",
+            "en": "Vendored + `render-markdown.mjs`: CLI requires `--locale`; Skill may default from `doc.i18n.defaultLocale`."
           }
         },
         {
           "title": "skills/airp-dashboard",
           "description": {
-            "zh-CN": "`renderer-dist/` + `serve-dashboard.mjs`：本地上传/浏览 `.airp.json`，无需项目 pnpm。",
-            "ja": "`renderer-dist/` と `serve-dashboard.mjs`：ローカルで `.airp.json` を閲覧。プロジェクトの pnpm 不要。",
-            "fr": "`renderer-dist/` + `serve-dashboard.mjs` : prévisualisation locale sans pnpm du projet.",
-            "en": "`renderer-dist/` + `serve-dashboard.mjs`: local upload/view of `.airp.json` without project pnpm."
+            "zh-CN": "`renderer-dist/` + `serve-dashboard.mjs`：本地上传/浏览 `.airp.json`，在线导出 HTML/Markdown。",
+            "ja": "`renderer-dist/` + serve：ローカル閲覧と HTML/Markdown エクスポート。",
+            "en": "`renderer-dist/` + serve: local `.airp.json` preview and online HTML/Markdown export."
           }
         },
         {
           "title": "scripts/",
           "description": {
-            "zh-CN": "`build-validate-airp.mjs` 打包 CLI；`package-skills.mjs` 串联 build → vendor → CLI。",
-            "ja": "`build-validate-airp.mjs` で CLI をバンドル；`package-skills.mjs` が build → vendor → CLI を連結。",
-            "fr": "`build-validate-airp.mjs` bundle le CLI ; `package-skills.mjs` enchaîne build → vendor → CLI.",
-            "en": "`build-validate-airp.mjs` bundles CLI; `package-skills.mjs` chains build → vendor → CLI."
+            "zh-CN": "`package-skills.mjs` 串联 renderer build → vendor → 各 Skill CLI；`build-render-*.mjs` 打包导出脚本。",
+            "ja": "`package-skills.mjs` が build → vendor → CLI を連結。",
+            "en": "`package-skills.mjs` chains renderer build → vendor → skill CLIs; `build-render-*.mjs` bundle export scripts."
           }
         }
       ]
@@ -212,14 +205,12 @@
       "title": {
         "zh-CN": "核心原理",
         "ja": "コア原理",
-        "fr": "Principes fondamentaux",
         "en": "Core principles"
       },
       "lead": {
-        "zh-CN": "五条设计原则决定「写什么」与「怎么画」分离，并使 Agent 输出可机器处理。",
-        "ja": "五つの原則が「何を書くか」と「どう描くか」を分離し、Agent 出力を機械処理可能にします。",
-        "fr": "Cinq principes séparent le contenu de la présentation et rendent la sortie agent traitable par machine.",
-        "en": "Five principles separate what to write from how to render, making agent output machine-processable."
+        "zh-CN": "五条设计原则决定「写什么」与「怎么画」分离；第六条约束语言/导出全链路一致。",
+        "ja": "五原則がコンテンツと表示を分離。六つ目が言語・エクスポートの一貫性を規定。",
+        "en": "Five principles separate content from presentation; a sixth governs consistent locale/export behavior end-to-end."
       },
       "children": [
         {
@@ -229,13 +220,11 @@
               "term": {
                 "zh-CN": "Schema SSOT",
                 "ja": "Schema SSOT",
-                "fr": "Schema SSOT",
                 "en": "Schema SSOT"
               },
               "definition": {
                 "zh-CN": "结构合法性只由 JSON Schema（及对齐的 Zod）判定；未通过校验的 JSON 不算有效制品。",
-                "ja": "構造の正当性は JSON Schema（および Zod）のみで判定。検証に失敗した JSON は無効。",
-                "fr": "La validité structurelle est jugée par JSON Schema (et Zod aligné) ; JSON non validé = artefact invalide.",
+                "ja": "構造の正当性は JSON Schema（および Zod）のみで判定。検証失敗は無効。",
                 "en": "Structural validity is determined only by JSON Schema (and aligned Zod); unvalidated JSON is not a valid artifact."
               }
             },
@@ -243,13 +232,11 @@
               "term": {
                 "zh-CN": "内容与呈现解耦",
                 "ja": "コンテンツと表示の分離",
-                "fr": "Découplage contenu / présentation",
                 "en": "Content–presentation decoupling"
               },
               "definition": {
                 "zh-CN": "`.airp.json` 不含像素布局；Renderer 由 block 语义推导样式。未来 PDF/Excel/Notion 渲染器无需改 schema。",
                 "ja": "`.airp.json` にピクセルレイアウトなし。Renderer はブロック意味からスタイルを導出。将来の PDF/Excel/Notion でも schema 不変。",
-                "fr": "Pas de layout pixel dans `.airp.json` ; le renderer déduit le style du sens des blocs. PDF/Excel/Notion sans changer le schema.",
                 "en": "No pixel layout in `.airp.json`; the renderer derives styling from block semantics. Future PDF/Excel/Notion renderers need no schema change."
               }
             },
@@ -257,42 +244,48 @@
               "term": {
                 "zh-CN": "语义块 IR",
                 "ja": "セマンティックブロック IR",
-                "fr": "IR par blocs sémantiques",
                 "en": "Semantic block IR"
               },
               "definition": {
                 "zh-CN": "`blocks[]` 是 discriminated union：每种 `type` 承载一种报告语义，比长 Markdown 更易索引、diff 与自动化。",
                 "ja": "`blocks[]` は discriminated union。各 `type` が報告意味を担い、長い Markdown より索引・diff・自動化に有利。",
-                "fr": "`blocks[]` est une union discriminée : chaque `type` porte une sémantique de rapport, plus indexable et diffable que du Markdown long.",
                 "en": "`blocks[]` is a discriminated union: each `type` carries report semantics, easier to index, diff, and automate than long Markdown."
               }
             },
             {
               "term": {
-                "zh-CN": "多语言一等公民",
-                "ja": "多言語を第一級に",
-                "fr": "Multilingue de premier ordre",
-                "en": "First-class multilingual"
+                "zh-CN": "文档 i18n 与 UI locale 分层",
+                "ja": "文書 i18n と UI locale の分離",
+                "en": "Document i18n vs UI locale"
               },
               "definition": {
-                "zh-CN": "`LocalizedString` 可为 locale 映射；`i18n.defaultLocale` 必须在 `locales` 中；渲染器按用户 locale 选取文案（本报告含 zh-CN / ja / fr / en）。",
-                "ja": "`LocalizedString` は locale マップ可。`defaultLocale` は `locales` に含める。レンダラーはユーザ locale で文案選択（本報告：zh-CN / ja / fr / en）。",
-                "fr": "`LocalizedString` peut être une carte de locales ; `defaultLocale` ∈ `locales` ; le renderer choisit le texte selon la locale (ce rapport : zh-CN, ja, fr, en).",
-                "en": "`LocalizedString` may be a locale map; `defaultLocale` must be in `locales`; the renderer picks copy by user locale (this report: zh-CN, ja, fr, en)."
+                "zh-CN": "文档：`LocalizedString` + `doc.i18n.locales`（内容由 Agent 决定，可仅单语或多语）。UI：`renderer-config.ts` 的 `rendererLocales`（工具栏/chrome，当前 10 种）。二者由 `locale-resolution` 联动，禁止组件层散落 fallback。",
+                "ja": "文書：`doc.i18n.locales`（Agent が決定）。UI：`rendererConfig.locales`（chrome 用 10 言語）。`locale-resolution` で連動。",
+                "en": "Document: `LocalizedString` + `doc.i18n.locales` (agent-chosen, mono- or multi-locale). UI: `rendererConfig.locales` (toolbar/chrome, currently 10). Linked via `locale-resolution`; no scattered fallback in components."
               }
             },
             {
               "term": {
                 "zh-CN": "可演进但受控",
                 "ja": "進化可能だが制御される",
-                "fr": "Évolutif mais contrôlé",
                 "en": "Evolvable yet controlled"
               },
               "definition": {
                 "zh-CN": "`schemaVersion` 主版本门控；块级 `additionalProperties: false` 防止随意扩展，保证兼容性可预测。",
                 "ja": "`schemaVersion` でメジャー管理。ブロック级 `additionalProperties: false` で無秩序な拡張を防止。",
-                "fr": "Version majeure via `schemaVersion` ; `additionalProperties: false` par bloc pour une compatibilité prévisible.",
                 "en": "Major version gated by `schemaVersion`; per-block `additionalProperties: false` prevents ad-hoc fields and keeps compatibility predictable."
+              }
+            },
+            {
+              "term": {
+                "zh-CN": "入口映射 + 统一推导 + backend 执行",
+                "ja": "入口マッピング + 統一 resolver + backend 実行",
+                "en": "Entry mapping → unified resolver → backend execution"
+              },
+              "definition": {
+                "zh-CN": "Dashboard/Skill/CLI 入口只决定导出模式与参数（如 `locale-mode`、`--locale`）；`locale-resolution.ts` 输出 content/ui locale 与持久化策略；Markdown/HTML backend 不做自动推断（Markdown fail-closed 传 locale）。",
+                "ja": "入口はモードと引数のみ。resolver が content/ui を決定。backend は推論しない。",
+                "en": "Dashboard/Skill/CLI entries only map export mode and parameters; `locale-resolution.ts` outputs content/ui locales and persistence policy; backends do not infer (Markdown is fail-closed on locale)."
               }
             }
           ]
@@ -303,14 +296,12 @@
           "title": {
             "zh-CN": "校验与 Mermaid 的分工",
             "ja": "検証と Mermaid の役割分担",
-            "fr": "Validation vs Mermaid",
             "en": "Validation vs Mermaid"
           },
           "body": {
-            "zh-CN": "`validate-airp.mjs` 仅校验 **JSON 结构**，**不** 执行 `mermaid.parse()`。图表语法遵循 `mermaid-authoring.md`，或在 `/airp-html` 阶段修正。",
-            "ja": "`validate-airp.mjs` は **JSON 構造のみ** を検証し、`mermaid.parse()` は実行しません。図は `mermaid-authoring.md` に従い、`/airp-html` で修正可能。",
-            "fr": "`validate-airp.mjs` ne valide que la **structure JSON**, pas `mermaid.parse()`. Suivre `mermaid-authoring.md` ou corriger via `/airp-html`.",
-            "en": "`validate-airp.mjs` validates **JSON structure only**, not `mermaid.parse()`. Follow `mermaid-authoring.md` or fix diagrams when rendering with `/airp-html`."
+            "zh-CN": "`validate-airp` 仅校验 **JSON 结构**，**不** 执行 `mermaid.parse()`。图表语法遵循 `mermaid-authoring.md`，或在 `/airp-html` 阶段修正。",
+            "ja": "`validate-airp` は **JSON 構造のみ** を検証し、`mermaid.parse()` は実行しません。図は `mermaid-authoring.md` に従い、`/airp-html` で修正可能。",
+            "en": "`validate-airp` validates **JSON structure only**, not `mermaid.parse()`. Follow `mermaid-authoring.md` or fix diagrams when rendering with `/airp-html`."
           }
         }
       ]
@@ -321,7 +312,6 @@
       "title": {
         "zh-CN": "端到端数据流",
         "ja": "エンドツーエンドのデータフロー",
-        "fr": "Flux de données de bout en bout",
         "en": "End-to-end data flow"
       },
       "children": [
@@ -329,12 +319,11 @@
           "type": "mermaid",
           "diagramKind": "sequence",
           "title": {
-            "zh-CN": "从 Agent 到可分享 HTML",
-            "ja": "Agent から共有可能な HTML へ",
-            "fr": "De l'agent au HTML partageable",
-            "en": "From agent to shareable HTML"
+            "zh-CN": "从 Agent 到多格式制品",
+            "ja": "Agent から複数フォーマットへ",
+            "en": "From agent to multi-format artifacts"
           },
-          "source": "sequenceDiagram\n  participant U as User\n  participant A as Agent\n  participant S as /airp Skill\n  participant V as validate-airp\n  participant H as /airp-html\n  U->>A: Request report\n  A->>S: Read schema + block-selection\n  S->>S: Write .docs/airp/*.airp.json\n  S->>V: node validate-airp.mjs\n  V-->>S: OK\n  U->>H: /airp-html path\n  H->>H: parseAirpDocument + renderStaticHtml\n  H-->>U: Single .html file"
+          "source": "sequenceDiagram\n  participant U as User\n  participant A as Agent\n  participant S as /airp Skill\n  participant V as validate-airp\n  participant P as pipeline\n  participant H as /airp-html\n  participant M as /airp-markdown\n  U->>A: Request report\n  A->>S: Read schema + block-selection\n  S->>S: Write .docs/airp/*.airp.json\n  S->>V: validate\n  V-->>S: OK\n  U->>H: /airp-html path\n  H->>P: render-html locale-mode\n  P-->>U: .html\n  U->>M: /airp-markdown path\n  M->>P: render-markdown --locale\n  P-->>U: .md"
         },
         {
           "type": "flowSteps",
@@ -343,14 +332,12 @@
               "title": {
                 "zh-CN": "1. 意图与选块",
                 "ja": "1. 意図とブロック選択",
-                "fr": "1. Intentions et choix des blocs",
                 "en": "1. Intent and block selection"
               },
               "description": {
-                "zh-CN": "按 `block-selection.md` 路由到 hero/section/table/mermaid 等；复杂系统优先 architectureOverview。",
-                "ja": "`block-selection.md` に従い hero/section 等へルーティング。複雑系は architectureOverview を優先。",
-                "fr": "Router selon `block-selection.md` ; systèmes complexes → `architectureOverview`.",
-                "en": "Route per `block-selection.md`; prefer `architectureOverview` for complex systems."
+                "zh-CN": "按 `block-selection.md` 路由；复杂系统优先 `architectureOverview`；图表遵循 `mermaid-authoring.md`。",
+                "ja": "`block-selection.md` に従いルーティング。複雑系は architectureOverview 優先。",
+                "en": "Route per `block-selection.md`; prefer `architectureOverview` for complex systems; diagrams per `mermaid-authoring.md`."
               },
               "status": "done"
             },
@@ -358,14 +345,12 @@
               "title": {
                 "zh-CN": "2. 遵循 Schema 撰写",
                 "ja": "2. Schema に従って記述",
-                "fr": "2. Rédaction conforme au schema",
                 "en": "2. Write per schema"
               },
               "description": {
-                "zh-CN": "只输出 schema 定义的字段；`meta.kind` 选用合适枚举；多语言字段提供全部 `i18n.locales` 键。",
-                "ja": "schema 定義フィールドのみ。`meta.kind` を適切に。多言語は全 `i18n.locales` キーを埋める。",
-                "fr": "Uniquement les champs du schema ; `meta.kind` adapté ; toutes les clés `i18n.locales` pour le multilingue.",
-                "en": "Only schema-defined fields; pick `meta.kind`; fill all `i18n.locales` keys for multilingual copy."
+                "zh-CN": "只输出 schema 字段；`meta.kind` 选用合适枚举；多语报告为全部 `doc.i18n.locales` 提供键（本架构报告：zh-CN / ja / en）。",
+                "ja": "schema 定義のみ。多言語は全 `doc.i18n.locales` キーを埋める（本報告：zh-CN / ja / en）。",
+                "en": "Only schema-defined fields; pick `meta.kind`; fill all `doc.i18n.locales` keys (this report: zh-CN, ja, en)."
               },
               "status": "done"
             },
@@ -373,29 +358,25 @@
               "title": {
                 "zh-CN": "3. 结构校验",
                 "ja": "3. 構造検証",
-                "fr": "3. Validation structurelle",
                 "en": "3. Structural validation"
               },
               "description": {
-                "zh-CN": "开发：`pnpm -C renderer validate`；技能：`node .../validate-airp.mjs`（与渲染器同一 Zod 源）。",
-                "ja": "開発：`pnpm -C renderer validate`。スキル：esbuild 版 `validate-airp.mjs`（同一 Zod）。",
-                "fr": "Dev : `pnpm -C renderer validate` ; skill : `validate-airp.mjs` (même Zod que le renderer).",
-                "en": "Dev: `pnpm -C renderer validate`; skill: bundled `validate-airp.mjs` (same Zod as renderer)."
+                "zh-CN": "开发：`pnpm -C renderer validate`；技能：bundled `validate-airp`（与渲染器同一 Zod 源）。",
+                "ja": "開発：`pnpm -C renderer validate`。スキル：bundled validate（同一 Zod）。",
+                "en": "Dev: `pnpm -C renderer validate`; skill: bundled `validate-airp` (same Zod as renderer)."
               },
               "status": "done"
             },
             {
               "title": {
-                "zh-CN": "4. 呈现",
-                "ja": "4. プレゼンテーション",
-                "fr": "4. Présentation",
-                "en": "4. Presentation"
+                "zh-CN": "4. 呈现与导出",
+                "ja": "4. プレゼンとエクスポート",
+                "en": "4. Presentation and export"
               },
               "description": {
-                "zh-CN": "Dashboard 预览或 render-static 导出 HTML；工具栏可切换 zh-CN / ja / fr / en。",
-                "ja": "Dashboard または静的 HTML。ツールバーで zh-CN / ja / fr / en を切替。",
-                "fr": "Dashboard ou HTML statique ; barre d'outils pour zh-CN, ja, fr, en.",
-                "en": "Dashboard preview or static HTML; toolbar switches zh-CN, ja, fr, en."
+                "zh-CN": "Dashboard 预览；`/airp-html` 单文件 HTML（all/single）；`/airp-markdown` 指定 locale 的 Markdown。推荐链：`/airp` → `/airp-html` 或 `/airp-markdown`。",
+                "ja": "Dashboard プレビュー；HTML all/single；Markdown は locale 指定。推奨：`/airp` → HTML または Markdown。",
+                "en": "Dashboard preview; `/airp-html` single-file HTML (all/single); `/airp-markdown` Markdown for a chosen locale. Recommended: `/airp` → `/airp-html` or `/airp-markdown`."
               },
               "status": "done"
             }
@@ -405,11 +386,351 @@
     },
     {
       "type": "section",
+      "id": "locale-export",
+      "title": {
+        "zh-CN": "语言与导出架构（统一推导）",
+        "ja": "言語・エクスポートアーキテクチャ",
+        "en": "Locale and export architecture"
+      },
+      "lead": {
+        "zh-CN": "整改方案已落地：移除 `contentLocale` 本地存储；`airp-ui-locale` / `airp-theme` / `airp-theme-mode` 为唯一 chrome 键；Dashboard、SSR 与 `airp-chrome.js` 共用 `resolveLocales()`。",
+        "ja": "統一 resolver 実装済み：`contentLocale` 廃止、chrome キー三種、`resolveLocales()` を全経路で共有。",
+        "en": "Remediation implemented: removed `contentLocale` storage; chrome keys `airp-ui-locale` / `airp-theme` / `airp-theme-mode`; Dashboard, SSR, and `airp-chrome.js` share `resolveLocales()`."
+      },
+      "children": [
+        {
+          "type": "mermaid",
+          "diagramKind": "flowchart",
+          "title": {
+            "zh-CN": "责任分层",
+            "ja": "責任分层",
+            "en": "Responsibility layers"
+          },
+          "source": "flowchart LR\n  ENTRY[\"Dashboard / Skill / CLI\"] -->|mode + params| CLI[\"render-html / render-markdown\"]\n  CLI -->|validated context| PIPE[\"pipeline\"]\n  PIPE --> SSR[\"static-html SSR\"]\n  PIPE --> RT[\"airp-chrome.js runtime\"]\n  RES[\"locale-resolution.ts\"] --> ENTRY\n  RES --> SSR\n  RES --> RT\n  PIPE --> BE[\"html / markdown backend\"]"
+        },
+        {
+          "type": "table",
+          "caption": {
+            "zh-CN": "Markdown 契约",
+            "ja": "Markdown 契約",
+            "en": "Markdown contract"
+          },
+          "columns": [
+            {
+              "key": "entry",
+              "label": {
+                "zh-CN": "入口",
+                "ja": "入口",
+                "en": "Entry"
+              }
+            },
+            {
+              "key": "rule",
+              "label": {
+                "zh-CN": "规则",
+                "ja": "規則",
+                "en": "Rule"
+              }
+            }
+          ],
+          "rows": [
+            {
+              "entry": "Dashboard 导出 Markdown",
+              "rule": {
+                "zh-CN": "二级菜单按 `doc.i18n.locales` 选语言；选定 locale 透传 backend，backend 不推断",
+                "ja": "doc.locales から選択し locale を透传。backend は推論しない",
+                "en": "Submenu lists `doc.i18n.locales`; chosen locale passed through; backend does not infer"
+              }
+            },
+            {
+              "entry": "render-markdown.ts CLI",
+              "rule": {
+                "zh-CN": "`--locale` 必传；不在 doc.locales 则报错退出",
+                "ja": "`--locale` 必須。doc に無ければエラー終了",
+                "en": "`--locale` required; exit on error if not in doc.locales"
+              }
+            },
+            {
+              "entry": "airp-markdown Skill",
+              "rule": {
+                "zh-CN": "语言可选；未提供时 Skill 读取 `doc.i18n.defaultLocale` 再调用 CLI",
+                "ja": "言語省略可。defaultLocale を読んで CLI に渡す",
+                "en": "Locale optional; Skill reads `doc.i18n.defaultLocale` when omitted"
+              }
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "caption": {
+            "zh-CN": "HTML 契约（fail-closed）",
+            "ja": "HTML 契約（fail-closed）",
+            "en": "HTML contract (fail-closed)"
+          },
+          "columns": [
+            {
+              "key": "input",
+              "label": {
+                "zh-CN": "输入",
+                "ja": "入力",
+                "en": "Input"
+              }
+            },
+            {
+              "key": "result",
+              "label": {
+                "zh-CN": "结果",
+                "ja": "結果",
+                "en": "Result"
+              }
+            }
+          ],
+          "rows": [
+            {
+              "input": "locale-mode 未传",
+              "result": {
+                "zh-CN": "视为 all",
+                "ja": "all とみなす",
+                "en": "Defaults to all"
+              }
+            },
+            {
+              "input": "locale-mode=all 且传 single-locale",
+              "result": {
+                "zh-CN": "报错退出",
+                "ja": "エラー終了",
+                "en": "Exit with error"
+              }
+            },
+            {
+              "input": "locale-mode=single 未传 single-locale",
+              "result": {
+                "zh-CN": "报错退出",
+                "ja": "エラー終了",
+                "en": "Exit with error"
+              }
+            },
+            {
+              "input": "single-locale 不在 doc.i18n.locales",
+              "result": {
+                "zh-CN": "报错退出（不忽略、不回退）",
+                "ja": "エラー終了（フォールバックなし）",
+                "en": "Exit with error (no silent fallback)"
+              }
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "caption": {
+            "zh-CN": "静态 HTML 行为（all vs single）",
+            "ja": "静的 HTML（all / single）",
+            "en": "Static HTML behavior (all vs single)"
+          },
+          "columns": [
+            {
+              "key": "mode",
+              "label": "mode"
+            },
+            {
+              "key": "panels",
+              "label": {
+                "zh-CN": "语言面板",
+                "ja": "言語パネル",
+                "en": "Locale panels"
+              }
+            },
+            {
+              "key": "content",
+              "label": {
+                "zh-CN": "文档语言",
+                "ja": "文書言語",
+                "en": "Content locale"
+              }
+            },
+            {
+              "key": "ui",
+              "label": {
+                "zh-CN": "UI 语言",
+                "ja": "UI 言語",
+                "en": "UI locale"
+              }
+            },
+            {
+              "key": "storage",
+              "label": {
+                "zh-CN": "存储",
+                "ja": "ストレージ",
+                "en": "Storage"
+              }
+            }
+          ],
+          "rows": [
+            {
+              "mode": "all",
+              "panels": {
+                "zh-CN": "全部 doc.locales + 切换器",
+                "ja": "doc.locales 全件 + 切替",
+                "en": "All doc.locales + switcher"
+              },
+              "content": {
+                "zh-CN": "airp-ui-locale → 浏览器语言 → doc.defaultLocale",
+                "ja": "airp-ui-locale → ブラウザ → doc.defaultLocale",
+                "en": "airp-ui-locale → browser → doc.defaultLocale"
+              },
+              "ui": {
+                "zh-CN": "content 若在 rendererLocales 则同 content；否则 airp-ui-locale → 浏览器 → renderer.defaultLocale",
+                "ja": "content が rendererLocales にあれば同値；否则チェーン回退",
+                "en": "Same as content if in rendererLocales; else airp-ui-locale → browser → renderer default"
+              },
+              "storage": {
+                "zh-CN": "仅在 finalUiLocale 确认后写 airp-ui-locale",
+                "ja": "finalUiLocale 確定後のみ airp-ui-locale 書込",
+                "en": "Write airp-ui-locale only after finalUiLocale is resolved"
+              }
+            },
+            {
+              "mode": "single",
+              "panels": {
+                "zh-CN": "仅 single-locale，无切换器",
+                "ja": "single のみ、切替なし",
+                "en": "Single locale only, no switcher"
+              },
+              "content": {
+                "zh-CN": "固定为 single-locale",
+                "ja": "single-locale 固定",
+                "en": "Fixed to single-locale"
+              },
+              "ui": {
+                "zh-CN": "single-locale → 浏览器 → renderer.defaultLocale",
+                "ja": "single-locale → ブラウザ → renderer default",
+                "en": "single-locale → browser → renderer.defaultLocale"
+              },
+              "storage": {
+                "zh-CN": "严格不读写语言本地存储",
+                "ja": "言語ストレージ読書禁止",
+                "en": "Strictly no locale localStorage read/write"
+              }
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "caption": {
+            "zh-CN": "三条入口 → render context 映射",
+            "ja": "三入口のマッピング",
+            "en": "Three entry points → render context"
+          },
+          "columns": [
+            {
+              "key": "entry",
+              "label": {
+                "zh-CN": "入口",
+                "ja": "入口",
+                "en": "Entry"
+              }
+            },
+            {
+              "key": "expression",
+              "label": {
+                "zh-CN": "用户表达",
+                "ja": "ユーザー操作",
+                "en": "User action"
+              }
+            },
+            {
+              "key": "mapped",
+              "label": {
+                "zh-CN": "映射",
+                "ja": "マッピング",
+                "en": "Mapped to"
+              }
+            }
+          ],
+          "rows": [
+            {
+              "entry": "Dashboard ExportMenu",
+              "expression": {
+                "zh-CN": "HTML：所有语言 / 指定语言；Markdown：按 doc.locales",
+                "ja": "HTML：全言語 / 指定；Markdown：doc.locales",
+                "en": "HTML: all locales / one locale; Markdown: per doc.locales"
+              },
+              "mapped": {
+                "zh-CN": "all → `{mode:'all'}`；single → `{mode:'single', locale}`；MD → locale 透传",
+                "ja": "all / single / MD locale 透传",
+                "en": "all → `{mode:'all'}`; single → `{mode:'single', locale}`; MD passes locale"
+              }
+            },
+            {
+              "entry": "airp-html Skill",
+              "expression": {
+                "zh-CN": "/airp-html path [语言]",
+                "ja": "/airp-html path [言語]",
+                "en": "/airp-html path [locale]"
+              },
+              "mapped": {
+                "zh-CN": "无语言 → `--locale-mode all`；有语言 → `--locale-mode single --single-locale`",
+                "ja": "言語なし → all；あり → single + single-locale",
+                "en": "No locale → all; with locale → single + single-locale"
+              }
+            },
+            {
+              "entry": "airp-markdown Skill",
+              "expression": {
+                "zh-CN": "/airp-markdown path [语言]",
+                "ja": "/airp-markdown path [言語]",
+                "en": "/airp-markdown path [locale]"
+              },
+              "mapped": {
+                "zh-CN": "有语言 → `--locale`；无语言 → Skill 取 defaultLocale 再传 CLI",
+                "ja": "言語あり → --locale；なし → defaultLocale",
+                "en": "With locale → `--locale`; without → Skill uses defaultLocale"
+              }
+            }
+          ]
+        },
+        {
+          "type": "decision",
+          "id": "adr-single-resolver",
+          "title": {
+            "zh-CN": "单一语言推导引擎",
+            "ja": "単一言語 resolver",
+            "en": "Single locale resolution engine"
+          },
+          "status": "accepted",
+          "context": {
+            "zh-CN": "此前 Dashboard、SSR、runtime 分散实现 fallback，易漂移与回归。",
+            "ja": "Dashboard/SSR/runtime に fallback が分散し漂移しやすかった。",
+            "en": "Dashboard, SSR, and runtime previously duplicated fallback logic, causing drift and regressions."
+          },
+          "rationale": {
+            "zh-CN": "`locale-resolution.ts` 集中规则；`tests/src/unit/locale-resolution.test.ts` 覆盖空态/有文档/all/single；入口层只做参数映射。",
+            "ja": "規則を `locale-resolution.ts` に集約し単体テストで担保。入口はマッピングのみ。",
+            "en": "Rules live in `locale-resolution.ts` with unit tests for empty/doc/all/single; entry layers only map parameters."
+          }
+        },
+        {
+          "type": "constraint",
+          "rule": {
+            "zh-CN": "禁止在 `use-report-chrome.ts`、`static-html.tsx`、`airp-chrome.js` 三处分别写 fallback；写入 `airp-ui-locale` 必须基于 finalUiLocale 且属于 rendererLocales。",
+            "ja": "三ファイルに fallback を重複実装禁止。airp-ui-locale は finalUiLocale のみ。",
+            "en": "Do not duplicate fallback in use-report-chrome, static-html, and airp-chrome.js; airp-ui-locale writes require finalUiLocale ∈ rendererLocales."
+          },
+          "scope": {
+            "zh-CN": "语言推导",
+            "ja": "言語推导",
+            "en": "Locale resolution"
+          },
+          "nonNegotiable": true
+        }
+      ]
+    },
+    {
+      "type": "section",
       "id": "renderer",
       "title": {
         "zh-CN": "Renderer 内部结构",
         "ja": "Renderer 内部構造",
-        "fr": "Structure interne du renderer",
         "en": "Renderer internals"
       },
       "children": [
@@ -418,7 +739,6 @@
           "caption": {
             "zh-CN": "关键源码职责",
             "ja": "主要ソースの役割",
-            "fr": "Rôles des sources clés",
             "en": "Key source responsibilities"
           },
           "columns": [
@@ -427,7 +747,6 @@
               "label": {
                 "zh-CN": "路径",
                 "ja": "パス",
-                "fr": "Chemin",
                 "en": "Path"
               },
               "cellKind": "code"
@@ -437,7 +756,6 @@
               "label": {
                 "zh-CN": "职责",
                 "ja": "役割",
-                "fr": "Rôle",
                 "en": "Role"
               }
             }
@@ -447,8 +765,7 @@
               "path": "renderer/src/lib/airp-schema.ts",
               "role": {
                 "zh-CN": "Zod 递归 blockSchema；parseAirpDocument 入口",
-                "ja": "Zod 再帰 blockSchema；parseAirpDocument 入口",
-                "fr": "Zod récursif ; entrée parseAirpDocument",
+                "ja": "Zod blockSchema；parseAirpDocument",
                 "en": "Recursive Zod blockSchema; parseAirpDocument entry"
               }
             },
@@ -456,27 +773,48 @@
               "path": "renderer/src/components/block-renderer.tsx",
               "role": {
                 "zh-CN": "按 type 渲染全部 block；递归嵌套",
-                "ja": "type ごとに全 block を描画；再帰ネスト",
-                "fr": "Rendu de tous les blocs par type ; nesting récursif",
+                "ja": "type ごとに全 block 描画",
                 "en": "Renders all blocks by type; recursive nesting"
               }
             },
             {
-              "path": "renderer/src/lib/i18n.ts",
+              "path": "renderer/src/pipeline/render-document.ts",
               "role": {
-                "zh-CN": "LocalizedString / RichText 与 locale 回退",
-                "ja": "LocalizedString / RichText と locale フォールバック",
-                "fr": "LocalizedString / RichText et repli de locale",
-                "en": "LocalizedString / RichText and locale fallback"
+                "zh-CN": "统一加载文档并分发至 html/markdown backend",
+                "ja": "文書読込と html/markdown backend 振分",
+                "en": "Loads document and dispatches to html/markdown backends"
               }
             },
             {
-              "path": "renderer/src/lib/static-html.tsx",
+              "path": "renderer/src/lib/locale-resolution.ts",
               "role": {
-                "zh-CN": "SSR 单页 HTML，注入主题与 locale chrome",
-                "ja": "SSR 単一 HTML、テーマと locale chrome を注入",
-                "fr": "HTML monopage SSR ; chrome thème et locale",
-                "en": "SSR single-page HTML; theme and locale chrome"
+                "zh-CN": "dashboard-empty/doc、html-all/single 四模式统一推导",
+                "ja": "四モードの統一 locale 推导",
+                "en": "Unified resolution for dashboard-empty/doc, html-all/single"
+              }
+            },
+            {
+              "path": "renderer/src/backends/html/static-html.tsx",
+              "role": {
+                "zh-CN": "SSR 单页 HTML；all 模式 html lang/title 用 doc.defaultLocale；注入 runtime config",
+                "ja": "SSR HTML；all は defaultLocale で lang/title",
+                "en": "SSR single-page HTML; all mode uses doc.defaultLocale for lang/title; injects runtime config"
+              }
+            },
+            {
+              "path": "renderer/src/backends/markdown/",
+              "role": {
+                "zh-CN": "emit-block / emit-document；仅消费调用方传入的 locale",
+                "ja": "Markdown 生成；locale は呼び出し元のみ",
+                "en": "emit-block / emit-document; consumes caller-provided locale only"
+              }
+            },
+            {
+              "path": "renderer/src/config/renderer-config.ts",
+              "role": {
+                "zh-CN": "rendererLocales（10）、storageKeys（ui/theme/themeMode）",
+                "ja": "rendererLocales と storageKeys",
+                "en": "rendererLocales (10) and storageKeys (ui/theme/themeMode)"
               }
             }
           ]
@@ -486,15 +824,18 @@
           "items": [
             {
               "zh-CN": "UI：Radix + Tailwind 4；主题切换**不改变** JSON 内容。",
-              "ja": "UI：Radix + Tailwind 4。テーマ切替は JSON 内容を**変更しない**。",
-              "fr": "UI : Radix + Tailwind 4 ; le thème **ne modifie pas** le JSON.",
+              "ja": "UI：Radix + Tailwind 4。テーマ切替は JSON を**変更しない**。",
               "en": "UI: Radix + Tailwind 4; theme switching **does not change** JSON content."
             },
             {
-              "zh-CN": "图表：Mermaid 11 + ELK；静态导出在浏览器端完成渲染。",
-              "ja": "図：Mermaid 11 + ELK。静的エクスポートはブラウザで描画。",
-              "fr": "Diagrammes : Mermaid 11 + ELK ; rendu navigateur en export statique.",
-              "en": "Diagrams: Mermaid 11 + ELK; static export renders in the browser."
+              "zh-CN": "图表：Mermaid 11 + ELK；静态 HTML 在浏览器端完成 Mermaid 渲染。",
+              "ja": "図：Mermaid 11 + ELK。静的 HTML はブラウザで描画。",
+              "en": "Diagrams: Mermaid 11 + ELK; static HTML renders Mermaid in the browser."
+            },
+            {
+              "zh-CN": "测试：`tests/` 含 contract、CLI 集成与 locale-resolution 单元测试。",
+              "ja": "テスト：contract、CLI 統合、locale-resolution 単体。",
+              "en": "Tests: `tests/` includes contract, CLI integration, and locale-resolution unit tests."
             }
           ]
         }
@@ -506,7 +847,6 @@
       "title": {
         "zh-CN": "技能打包与资产 vendoring",
         "ja": "スキルパッケージと vendor",
-        "fr": "Packaging des skills et vendoring",
         "en": "Skill packaging and vendoring"
       },
       "children": [
@@ -517,13 +857,11 @@
               "key": {
                 "zh-CN": "安装入口",
                 "ja": "インストール",
-                "fr": "Installation",
                 "en": "Install"
               },
               "value": {
                 "zh-CN": "`npx skills add maosong-ai/airp` — 无需克隆仓库。",
                 "ja": "`npx skills add maosong-ai/airp` — クローン不要。",
-                "fr": "`npx skills add maosong-ai/airp` — sans cloner le dépôt.",
                 "en": "`npx skills add maosong-ai/airp` — no repo clone required."
               }
             },
@@ -531,13 +869,11 @@
               "key": {
                 "zh-CN": "默认产物目录",
                 "ja": "既定出力ディレクトリ",
-                "fr": "Répertoire de sortie par défaut",
                 "en": "Default output directory"
               },
               "value": {
                 "zh-CN": "`.docs/airp/`（`--out` 可覆盖）。",
                 "ja": "`.docs/airp/`（`--out` で変更可）。",
-                "fr": "`.docs/airp/` (surcharge avec `--out`).",
                 "en": "`.docs/airp/` (override with `--out`)."
               }
             },
@@ -545,14 +881,12 @@
               "key": {
                 "zh-CN": "推荐命令链",
                 "ja": "推奨コマンド連鎖",
-                "fr": "Chaîne de commandes recommandée",
                 "en": "Recommended command chain"
               },
               "value": {
-                "zh-CN": "`/airp` → `/airp-html <path>`；归档 `.airp.json`，分享 `.html`。",
-                "ja": "`/airp` → `/airp-html <path>`。保管は `.airp.json`、共有は `.html`。",
-                "fr": "`/airp` puis `/airp-html <path>` ; archiver `.airp.json`, partager `.html`.",
-                "en": "`/airp` then `/airp-html <path>`; archive `.airp.json`, share `.html`."
+                "zh-CN": "`/airp` → `/airp-html`（分享）或 `/airp-markdown`（文档）；归档 `.airp.json`。",
+                "ja": "`/airp` → HTML または Markdown。保管は `.airp.json`。",
+                "en": "`/airp` then `/airp-html` (share) or `/airp-markdown` (docs); archive `.airp.json`."
               }
             }
           ]
@@ -565,7 +899,6 @@
       "title": {
         "zh-CN": "与传统交付物对比",
         "ja": "従来の成果物との比較",
-        "fr": "Comparaison aux livrables classiques",
         "en": "Comparison with traditional deliverables"
       },
       "children": [
@@ -574,13 +907,11 @@
           "labelBefore": {
             "zh-CN": "长 Markdown / 聊天摘录",
             "ja": "長い Markdown / チャット抜粋",
-            "fr": "Long Markdown / extrait de chat",
             "en": "Long Markdown / chat excerpt"
           },
           "labelAfter": {
             "zh-CN": "AIRP *.airp.json",
             "ja": "AIRP *.airp.json",
-            "fr": "AIRP *.airp.json",
             "en": "AIRP *.airp.json"
           },
           "before": [
@@ -590,14 +921,12 @@
                 {
                   "zh-CN": "结构模糊，难以机器校验",
                   "ja": "構造が曖昧で機械検証が困難",
-                  "fr": "Structure floue, difficile à valider automatiquement",
                   "en": "Fuzzy structure, hard to validate mechanically"
                 },
                 {
-                  "zh-CN": "版式与内容耦合",
-                  "ja": "版式と内容が結合",
-                  "fr": "Mise en forme couplée au contenu",
-                  "en": "Layout coupled to content"
+                  "zh-CN": "版式与内容耦合；多语常需多份文件",
+                  "ja": "版式と内容が結合；多言語は複数ファイル化しやすい",
+                  "en": "Layout coupled to content; multilingual often means duplicate files"
                 }
               ]
             }
@@ -609,14 +938,12 @@
                 {
                   "zh-CN": "Schema/Zod 硬边界，失败即无效",
                   "ja": "Schema/Zod の厳格な境界、失敗は無効",
-                  "fr": "Frontière Schema/Zod stricte : échec = invalide",
                   "en": "Strict Schema/Zod boundary; failure means invalid"
                 },
                 {
-                  "zh-CN": "四语等同一份 IR，渲染器切换 locale",
-                  "ja": "4言語が同一 IR、レンダラーが locale 切替",
-                  "fr": "Quatre langues, un seul IR ; le renderer change la locale",
-                  "en": "Four locales in one IR; renderer switches locale"
+                  "zh-CN": "一份 IR 多 locale；同一源导出 HTML / Markdown",
+                  "ja": "1 IR で複数 locale；HTML/Markdown を同一ソースから",
+                  "en": "One IR, many doc locales; same source exports HTML and Markdown"
                 }
               ]
             }
@@ -630,7 +957,6 @@
       "title": {
         "zh-CN": "关键架构决策",
         "ja": "主要なアーキテクチャ決定",
-        "fr": "Décisions d'architecture clés",
         "en": "Key architecture decisions"
       },
       "children": [
@@ -640,35 +966,50 @@
           "title": {
             "zh-CN": "运行时用 Zod 而非 CLI 内嵌 JSON Schema 引擎",
             "ja": "CLI に JSON Schema エンジンではなく実行時 Zod",
-            "fr": "Zod à l'exécution plutôt qu'un moteur JSON Schema dans le CLI",
             "en": "Runtime Zod instead of embedding a JSON Schema engine in the CLI"
           },
           "status": "accepted",
           "context": {
             "zh-CN": "Renderer 已用 Zod 驱动 React；校验与渲染共享 `parseAirpDocument` 可避免规则漂移。",
-            "ja": "Renderer は既に Zod で React を駆動。検証と描画で `parseAirpDocument` を共有しルール漂移を防止。",
-            "fr": "Le renderer utilise déjà Zod ; partager `parseAirpDocument` évite la dérive entre validation et rendu.",
+            "ja": "Renderer は Zod で React を駆動。検証と描画で parseAirpDocument を共有。",
             "en": "The renderer already uses Zod for React; sharing `parseAirpDocument` avoids validation/render rule drift."
           },
           "rationale": {
             "zh-CN": "esbuild 单文件打包进技能，体积小，与 Dashboard/HTML 行为一致。JSON Schema 仍是对外 SSOT。",
-            "ja": "esbuild で単一ファイル化しスキルに同梱。Dashboard/HTML と一致。対外 SSOT は JSON Schema のまま。",
-            "fr": "Bundle esbuild monofichier dans le skill ; cohérent avec Dashboard/HTML. JSON Schema reste le SSOT externe.",
+            "ja": "esbuild 単一ファイルをスキルに同梱。対外 SSOT は JSON Schema。",
             "en": "esbuild single-file bundle in the skill; consistent with Dashboard/HTML. JSON Schema remains the external SSOT."
+          }
+        },
+        {
+          "type": "decision",
+          "id": "adr-dual-backend",
+          "title": {
+            "zh-CN": "pipeline + 双 backend 而非单文件 static-html",
+            "ja": "pipeline + 二 backend",
+            "en": "Pipeline + dual backends instead of monolithic static-html"
+          },
+          "status": "accepted",
+          "context": {
+            "zh-CN": "新增 Markdown 导出后，HTML 与 MD 的上下文契约不同（all/single vs 必传 locale）。",
+            "ja": "Markdown 追加により HTML と MD のコンテキストが異なる。",
+            "en": "Markdown export introduced different context contracts (all/single vs required locale)."
+          },
+          "rationale": {
+            "zh-CN": "`pipeline/render-document.ts` 编排加载；`HtmlRenderContext` / `MarkdownRenderContext` 分型；backend 只执行不推断。",
+            "ja": "pipeline が編成；Html/Markdown の context を分離；backend は実行のみ。",
+            "en": "`pipeline/render-document.ts` orchestrates loading; separate `HtmlRenderContext` / `MarkdownRenderContext`; backends execute without inference."
           }
         },
         {
           "type": "constraint",
           "rule": {
             "zh-CN": "新增 block 须同步更新 schema、Zod、block-renderer 与 block-selection；Agent 不得发明未定义的 `type`。",
-            "ja": "新規 block は schema・Zod・block-renderer・block-selection を同時更新。未定義 `type` の invent 禁止。",
-            "fr": "Nouveau bloc = mise à jour schema, Zod, block-renderer, block-selection ; pas de `type` inventé.",
+            "ja": "新規 block は schema・Zod・block-renderer・block-selection を同時更新。未定義 type 禁止。",
             "en": "New blocks require schema, Zod, block-renderer, and block-selection updates; agents must not invent undefined `type` values."
           },
           "scope": {
             "zh-CN": "块类型封闭集合",
             "ja": "ブロック型の閉じた集合",
-            "fr": "Ensemble fermé de types de blocs",
             "en": "Closed set of block types"
           },
           "nonNegotiable": true
@@ -681,7 +1022,6 @@
       "title": {
         "zh-CN": "演进方向",
         "ja": "ロードマップ",
-        "fr": "Feuille de route",
         "en": "Roadmap"
       },
       "children": [
@@ -690,20 +1030,17 @@
           "items": [
             {
               "zh-CN": "密码保护制品：加密 `.airp.json` / `.html`。",
-              "ja": "パスワード保護成果物：`.airp.json` / `.html` の暗号化。",
-              "fr": "Artefacts protégés par mot de passe.",
+              "ja": "パスワード保護：`.airp.json` / `.html` の暗号化。",
               "en": "Password-protected `.airp.json` / `.html` artifacts."
             },
             {
               "zh-CN": "多页文档：长报告分页/分章。",
-              "ja": "マルチページ文書：長報告のページ分割。",
-              "fr": "Documents multipages pour longs rapports.",
+              "ja": "マルチページ：長報告のページ分割。",
               "en": "Multi-page documents for long reports."
             },
             {
               "zh-CN": "更多 Renderer（PDF/Excel/Notion），**schema 保持稳定**。",
               "ja": "追加 Renderer（PDF/Excel/Notion）、**schema は安定**。",
-              "fr": "Renderers PDF/Excel/Notion, **schema stable**.",
               "en": "More renderers (PDF/Excel/Notion) with a **stable schema**."
             }
           ]
@@ -716,7 +1053,6 @@
               "label": {
                 "zh-CN": "上游仓库 maosong-ai/airp",
                 "ja": "上流リポジトリ maosong-ai/airp",
-                "fr": "Dépôt amont maosong-ai/airp",
                 "en": "Upstream repo maosong-ai/airp"
               }
             }
@@ -727,7 +1063,7 @@
     {
       "type": "agentNote",
       "visible": false,
-      "text": "Multilingual refresh: zh-CN (default), ja, fr, en. All LocalizedString/RichText user-facing fields include four keys. Mermaid sources kept English-neutral. Validated 2026-06-03."
+      "text": "Refactored 2026-06-04: trilingual zh-CN/ja/en only; integrated locale-export remediation as implemented architecture; 4 skills, dual backends, locale-resolution. Source plan: locale-export-remediation.airp.json."
     }
   ]
 }
