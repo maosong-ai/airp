@@ -60,6 +60,18 @@ Allow overrides:
 
 - `/airp --out <dir>`
 
+**Locale (command flags)**
+
+How to pass language intent on `/airp` (generation rules: `references/block-selection.md`):
+
+| Case | Example |
+|---|---|
+| Not specified — use chat language, single locale | `/airp` |
+| Multiple locales | `/airp --locales zh-CN,en` |
+| Multiple locales + explicit default | `/airp --locales zh-CN,en --default-locale zh-CN` |
+
+Same intent in plain language in the prompt (e.g. "中日英三语") counts as `--locales`
+
 **Step 4 — Validate**
 
 From the **skill root** (directory containing this `SKILL.md`; when installed globally, e.g. `~/.cursor/skills/airp/` or `~/.agents/skills/airp/`):
@@ -84,6 +96,7 @@ On schema failure: fix JSON per Zod/schema message. Do not produce a "best-effor
 
 - **Default dir**: `.docs/airp/` (relative to the project root / workspace root)
 - **Override**: `--out <dir>`
+- **Locale**: omit flags for single chat language; `--locales` / `--default-locale` as above
 
 ## CLI (`validate-airp.mjs`)
 
