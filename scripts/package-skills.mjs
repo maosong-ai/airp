@@ -46,7 +46,7 @@ Options:
   --skip-install            Skip installing renderer deps
   --skip-renderer-build     Skip building renderer (requires existing renderer/dist)
   --skip-vendor             Skip vendoring renderer assets + schema into skills
-  --skip-cli-build          Skip building precompiled CLI entries (validate/render-static)
+  --skip-cli-build          Skip building precompiled CLI entries (validate/render-html/render-markdown)
 `);
     process.exit(0);
   }
@@ -84,7 +84,10 @@ Options:
     await run(process.execPath, [path.join(repoRoot, "scripts", "build-validate-airp.mjs")], {
       env: process.env,
     });
-    await run(process.execPath, [path.join(repoRoot, "scripts", "build-render-static.mjs")], {
+    await run(process.execPath, [path.join(repoRoot, "scripts", "build-render-html.mjs")], {
+      env: process.env,
+    });
+    await run(process.execPath, [path.join(repoRoot, "scripts", "build-render-markdown.mjs")], {
       env: process.env,
     });
   }

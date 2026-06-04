@@ -4,14 +4,6 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-async function vendorRendererDist({ repoRoot, dstSkillRoot }) {
-  const srcDist = path.join(repoRoot, "renderer", "dist");
-  const dstDist = path.join(dstSkillRoot, "assets", "renderer", "dist");
-  await mkdir(path.dirname(dstDist), { recursive: true });
-  await cp(srcDist, dstDist, { recursive: true });
-  return { srcDist, dstDist };
-}
-
 async function vendorRendererPublic({ repoRoot, dstSkillRoot }) {
   const srcPublic = path.join(repoRoot, "renderer", "public");
   const dstPublic = path.join(dstSkillRoot, "assets", "renderer", "public");
@@ -36,7 +28,6 @@ async function main() {
 
   const schema = await vendorSchema({ repoRoot, dstSkillRoot: airpRoot });
 
-  const distHtml = await vendorRendererDist({ repoRoot, dstSkillRoot: airpHtmlRoot });
   const publicHtml = await vendorRendererPublic({ repoRoot, dstSkillRoot: airpHtmlRoot });
 
   const srcDist = path.join(repoRoot, "renderer", "dist");
@@ -48,8 +39,7 @@ async function main() {
     [
       "Vendored AIRP assets:",
       `  schema:  ${schema.srcSchema} -> ${schema.dstSchema}`,
-      `  html:    dist ${distHtml.srcDist} -> ${distHtml.dstDist}`,
-      `          public ${publicHtml.srcPublic} -> ${publicHtml.dstPublic}`,
+      `  html:    public ${publicHtml.srcPublic} -> ${publicHtml.dstPublic}`,
       `  dash:    dist ${srcDist} -> ${dstDashDist}`,
     ].join("\n")
   );

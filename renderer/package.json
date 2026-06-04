@@ -7,8 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/stamp-export-css.mjs",
     "preview": "vite preview",
-    "render": "tsx scripts/render-static.ts",
-    "validate": "tsx scripts/validate-airp.ts"
+    "render:html": "tsx scripts/render-html.ts",
+    "render:markdown": "tsx scripts/render-markdown.ts",
+    "validate": "tsx scripts/validate-airp.ts",
+    "contract": "tsx scripts/contract-render.ts"
   },
   "dependencies": {
     "@mermaid-js/layout-elk": "^0.1.9",

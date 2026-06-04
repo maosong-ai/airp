@@ -11,4 +11,15 @@ export default defineConfig({
     },
   },
   base: "./",
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("backends/markdown")) {
+            return "markdown-export";
+          }
+        },
+      },
+    },
+  },
 });
