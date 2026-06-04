@@ -157,12 +157,24 @@
     root.dataset.preset = preset;
   }
 
+  function getTitle(locale) {
+    // Infer title from document meta if available
+    // This is typically set by the application, but we may need to compute it here
+    const docTitle = document.title;
+    // For now, keep the title as is (set by SSR)
+    // In a future iteration, you could pass docMeta in config if needed
+    return docTitle;
+  }
+
   function applyLocale(locale) {
     for (const panel of panels()) {
       const on = panel.getAttribute("data-airp-locale") === locale;
       panel.hidden = !on;
     }
+    // Update html lang and title based on contentLocale
     root.lang = locale;
+    // Note: Title update would require doc meta in config; 
+    // for now SSR sets it correctly and this applies dynamically
     updateChromeUi(locale);
     const visible = document.querySelector(
       `[data-airp-locale="${locale}"]:not([hidden])`
@@ -202,10 +214,22 @@
   }
 
   function resolveLocale() {
-    const stored = readStorage(config.storageKeys.locale);
+    // First check stored contentLocale
+    const stored = readStorage(config.storageKeys.contentLocale);
     if (stored && config.locales.includes(stored)) {
       return stored;
     }
+
+    // all mode: match browser language to doc locales
+    const browserLang =
+      navigator.language ||
+      navigator.userLanguage;
+    const fromBrowser = matchLocaleInList(browserLang, config.locales);
+    if (fromBrowser) {
+      return fromBrowser;
+    }
+
+    // Fallback to exportLocale (SSR default)
     return config.exportLocale;
   }
 
@@ -225,14 +249,37 @@
     return config.exportColorMode;
   }
 
-  let locale = resolveLocale();
   let preset = resolvePreset();
   let colorMode = resolveColorMode();
+  // activeLocale is used by preset/mode handlers for UI refresh
+  let activeLocale = config.exportLocale;
 
-  applyLocale(locale);
+  // single mode: locale is fixed at SSR value; skip locale logic entirely
+  if (config.localeMode !== "single") {
+    activeLocale = resolveLocale();
+    applyLocale(activeLocale);
+    syncActiveUi({ locale: activeLocale, preset, colorMode });
+
+    // Wire locale buttons
+    for (const btn of document.querySelectorAll("[data-airp-locale-option]")) {
+      btn.addEventListener("click", () => {
+        const v = btn.getAttribute("data-airp-locale-option");
+        if (!v) return;
+        applyLocale(v);
+        writeStorage(config.storageKeys.contentLocale, v);
+        activeLocale = v;
+        syncActiveUi({ locale: activeLocale, preset, colorMode });
+        closeAllPopovers();
+      });
+    }
+  } else {
+    // single mode: apply UI chrome strings for the fixed locale
+    updateChromeUi(activeLocale);
+    syncActiveUi({ locale: activeLocale, preset, colorMode });
+  }
+
   applyThemePreset(preset);
   applyColorMode(colorMode);
-  syncActiveUi({ locale, preset, colorMode });
 
   // Popovers: click to toggle; close on outside click and Escape.
   for (const r of popoverRoots()) {
@@ -262,8 +309,8 @@
       applyThemePreset(v);
       writeStorage(config.storageKeys.theme, v);
       preset = v;
-      syncActiveUi({ locale, preset, colorMode });
-      updateChromeUi(locale);
+      syncActiveUi({ locale: activeLocale, preset, colorMode });
+      updateChromeUi(activeLocale);
       closeAllPopovers();
     });
   }
@@ -276,24 +323,11 @@
       applyColorMode(v);
       writeStorage(config.storageKeys.themeMode, v);
       colorMode = v;
-      syncActiveUi({ locale, preset, colorMode });
+      syncActiveUi({ locale: activeLocale, preset, colorMode });
       if (typeof window.__airpRefreshDiagrams === "function") {
         const visible = document.querySelector("[data-airp-locale]:not([hidden])");
         if (visible) window.__airpRefreshDiagrams(visible);
       }
-      closeAllPopovers();
-    });
-  }
-
-  // Wire locale buttons
-  for (const btn of document.querySelectorAll("[data-airp-locale-option]")) {
-    btn.addEventListener("click", () => {
-      const v = btn.getAttribute("data-airp-locale-option");
-      if (!v) return;
-      applyLocale(v);
-      writeStorage(config.storageKeys.locale, v);
-      locale = v;
-      syncActiveUi({ locale, preset, colorMode });
       closeAllPopovers();
     });
   }
