@@ -52,11 +52,17 @@
     );
   }
 
-  function resolveUiLocale(docLocale) {
-    return (
-      matchLocaleInList(docLocale, config.rendererLocales) ??
-      config.defaultRendererLocale
-    );
+  function resolveUiFromRendererChain(storedUiLocale, browserLangs) {
+    const candidates = [storedUiLocale, ...browserLangs, config.defaultRendererLocale]
+      .filter(Boolean);
+
+    for (const candidate of candidates) {
+      const matched = matchLocaleInList(candidate, config.rendererLocales);
+      if (matched) {
+        return matched;
+      }
+    }
+    return config.defaultRendererLocale;
   }
 
   function chromeTable(uiLocale) {
@@ -72,8 +78,8 @@
     }
   }
 
-  function updateChromeUi(docLocale) {
-    const table = chromeTable(resolveUiLocale(docLocale));
+  function updateChromeUi(uiLocale) {
+    const table = chromeTable(uiLocale);
     if (!table) return;
 
     setText(document.querySelector("#airp-chrome [data-airp-i18n='app-title']"), table.appTitle);
@@ -157,13 +163,23 @@
     root.dataset.preset = preset;
   }
 
-  function applyLocale(locale) {
+  function getTitle(locale) {
+    return (
+      config.titleByLocale?.[locale] ??
+      config.titleByLocale?.[config.documentDefaultLocale] ??
+      document.title
+    );
+  }
+
+  function applyLocale(locale, uiLocale) {
     for (const panel of panels()) {
       const on = panel.getAttribute("data-airp-locale") === locale;
       panel.hidden = !on;
     }
+    // Keep html language and title synchronized with active content locale.
     root.lang = locale;
-    updateChromeUi(locale);
+    document.title = getTitle(locale);
+    updateChromeUi(uiLocale);
     const visible = document.querySelector(
       `[data-airp-locale="${locale}"]:not([hidden])`
     );
@@ -185,6 +201,14 @@
     }
   }
 
+  function setAllFileTreeNodesOpen(container, open) {
+    const nodes = container.querySelectorAll("[data-airp-file-tree-node]");
+    for (const node of nodes) {
+      if (!(node instanceof HTMLDetailsElement)) continue;
+      node.open = open;
+    }
+  }
+
   function togglePopover(rootEl, nextOpen) {
     const trigger = rootEl.querySelector("[data-airp-popover-trigger]");
     const panel = rootEl.querySelector("[data-airp-popover-panel]");
@@ -201,12 +225,53 @@
     panel.setAttribute("data-airp-open", open ? "true" : "false");
   }
 
-  function resolveLocale() {
-    const stored = readStorage(config.storageKeys.locale);
-    if (stored && config.locales.includes(stored)) {
-      return stored;
+  function getBrowserLocales() {
+    const langs = Array.isArray(navigator.languages)
+      ? navigator.languages.filter(Boolean)
+      : [];
+    if (langs.length > 0) {
+      return langs;
     }
-    return config.exportLocale;
+    const fallback = navigator.language || navigator.userLanguage;
+    return fallback ? [fallback] : [];
+  }
+
+  function resolveAllModeLocales(preferredLocale) {
+    const storedUiLocale = readStorage(config.storageKeys.uiLocale);
+    const browserLangs = getBrowserLocales();
+    const contentCandidates = [preferredLocale, storedUiLocale, ...browserLangs, config.documentDefaultLocale]
+      .filter(Boolean);
+
+    let contentLocale = config.documentDefaultLocale;
+    for (const candidate of contentCandidates) {
+      const matched = matchLocaleInList(candidate, config.locales);
+      if (matched) {
+        contentLocale = matched;
+        break;
+      }
+    }
+
+    const uiLocale =
+      matchLocaleInList(contentLocale, config.rendererLocales) ??
+      resolveUiFromRendererChain(storedUiLocale, browserLangs);
+
+    return {
+      contentLocale,
+      uiLocale,
+      shouldPersistUiLocale: true,
+    };
+  }
+
+  function resolveSingleModeUiLocale(singleLocale) {
+    const browserLangs = getBrowserLocales();
+    const fromSingle = matchLocaleInList(singleLocale, config.rendererLocales);
+    if (fromSingle) {
+      return fromSingle;
+    }
+    const fromBrowser = browserLangs
+      .map((lang) => matchLocaleInList(lang, config.rendererLocales))
+      .find(Boolean);
+    return fromBrowser ?? config.defaultRendererLocale;
   }
 
   function resolvePreset() {
@@ -225,14 +290,49 @@
     return config.exportColorMode;
   }
 
-  let locale = resolveLocale();
   let preset = resolvePreset();
   let colorMode = resolveColorMode();
+  // activeLocale is used by preset/mode handlers for UI refresh
+  let activeLocale = config.exportLocale;
+  let activeUiLocale = config.defaultRendererLocale;
 
-  applyLocale(locale);
+  // single mode: locale is fixed at SSR value; skip locale logic entirely
+  if (config.localeMode !== "single") {
+    const initial = resolveAllModeLocales();
+    activeLocale = initial.contentLocale;
+    activeUiLocale = initial.uiLocale;
+    applyLocale(activeLocale, activeUiLocale);
+    if (initial.shouldPersistUiLocale) {
+      writeStorage(config.storageKeys.uiLocale, activeUiLocale);
+    }
+    syncActiveUi({ locale: activeLocale, preset, colorMode });
+
+    // Wire locale buttons
+    for (const btn of document.querySelectorAll("[data-airp-locale-option]")) {
+      btn.addEventListener("click", () => {
+        const v = btn.getAttribute("data-airp-locale-option");
+        if (!v) return;
+        const next = resolveAllModeLocales(v);
+        activeLocale = next.contentLocale;
+        activeUiLocale = next.uiLocale;
+        applyLocale(activeLocale, activeUiLocale);
+        if (next.shouldPersistUiLocale) {
+          writeStorage(config.storageKeys.uiLocale, activeUiLocale);
+        }
+        syncActiveUi({ locale: activeLocale, preset, colorMode });
+        closeAllPopovers();
+      });
+    }
+  } else {
+    // single mode: locale is fixed and language storage is ignored.
+    activeLocale = config.exportLocale;
+    activeUiLocale = resolveSingleModeUiLocale(activeLocale);
+    updateChromeUi(activeUiLocale);
+    syncActiveUi({ locale: activeLocale, preset, colorMode });
+  }
+
   applyThemePreset(preset);
   applyColorMode(colorMode);
-  syncActiveUi({ locale, preset, colorMode });
 
   // Popovers: click to toggle; close on outside click and Escape.
   for (const r of popoverRoots()) {
@@ -254,6 +354,25 @@
     if (e.key === "Escape") closeAllPopovers();
   });
 
+  document.addEventListener("click", (e) => {
+    const t = e.target;
+    if (!(t instanceof Element)) return;
+    const actionEl = t.closest("[data-airp-file-tree-action]");
+    if (!(actionEl instanceof HTMLElement)) return;
+
+    const tree = actionEl.closest("[data-airp-file-tree]");
+    if (!(tree instanceof HTMLElement)) return;
+
+    const action = actionEl.getAttribute("data-airp-file-tree-action");
+    if (action === "expand-all") {
+      setAllFileTreeNodesOpen(tree, true);
+      return;
+    }
+    if (action === "collapse-all") {
+      setAllFileTreeNodesOpen(tree, false);
+    }
+  });
+
   // Wire preset buttons
   for (const btn of document.querySelectorAll("[data-airp-preset]")) {
     btn.addEventListener("click", () => {
@@ -262,8 +381,8 @@
       applyThemePreset(v);
       writeStorage(config.storageKeys.theme, v);
       preset = v;
-      syncActiveUi({ locale, preset, colorMode });
-      updateChromeUi(locale);
+      syncActiveUi({ locale: activeLocale, preset, colorMode });
+      updateChromeUi(activeUiLocale);
       closeAllPopovers();
     });
   }
@@ -276,24 +395,11 @@
       applyColorMode(v);
       writeStorage(config.storageKeys.themeMode, v);
       colorMode = v;
-      syncActiveUi({ locale, preset, colorMode });
+      syncActiveUi({ locale: activeLocale, preset, colorMode });
       if (typeof window.__airpRefreshDiagrams === "function") {
         const visible = document.querySelector("[data-airp-locale]:not([hidden])");
         if (visible) window.__airpRefreshDiagrams(visible);
       }
-      closeAllPopovers();
-    });
-  }
-
-  // Wire locale buttons
-  for (const btn of document.querySelectorAll("[data-airp-locale-option]")) {
-    btn.addEventListener("click", () => {
-      const v = btn.getAttribute("data-airp-locale-option");
-      if (!v) return;
-      applyLocale(v);
-      writeStorage(config.storageKeys.locale, v);
-      locale = v;
-      syncActiveUi({ locale, preset, colorMode });
       closeAllPopovers();
     });
   }
