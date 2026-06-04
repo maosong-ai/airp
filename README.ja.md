@@ -1,164 +1,141 @@
-# AIRP — AI Report Protocol
+# AIRP — AI Report Protocol（AI レポートプロトコル）
 
-[🇺🇸 English](./README.md) | [🇨🇳 中文](./README.cn.md) | [🇯🇵 日本語](./README.ja.md)
+[🇺🇸 English](./README.md) | [🇨🇳 中文](./README.cn.md) | [🇯🇵 日本語](./README.ja.md) | [🇰🇷 한국어](./README.ko.md) | [🇩🇪 Deutsch](./README.de.md) | [🇫🇷 Français](./README.fr.md) | [🇷🇺 Русский](./README.ru.md) | [🇪🇸 Español](./README.es.md) | [🇧🇷 Português (Brasil)](./README.pt-BR.md) | [🇮🇹 Italiano](./README.it.md)
 
 ![AIRP screen capture](./screen-capture.png "AIRP screen capture")
 
-AI/Agent が出力する技術レポートを、**検証可能・レンダリング可能・アーカイブ可能**なプロダクト品質の成果物に変換します。
+**AI/Agent の会話出力を、検証可能・レンダリング可能・長期メンテナンス可能な構造化レポートに変換します。**
 
-AIRP は安定した **JSON Schema（単一の真実の源 / SSOT）** によってレポート構造（blocks）を制約し、**Dashboard** と **静的 HTML レンダリング** を提供します。これにより、チャット上の出力を再利用・共有できるレポートファイル（`.airp.json` / `.html`）にできます。
-
-さらに AIRP は **コンテンツ（schema）** と **表示（renderer）** を分離しています：
-
-- **レンダラーの拡張性**：schema を変えずに PDF / Excel / Notion などへ拡張可能
-- **多言語（zh/ja/en）**：1 つのレポートに複数言語の文言を持てます。レンダラーは選択した locale で出力します
-- **スキン/テーマ**：コンテンツを変えずに見た目（ライト/ダーク、ブランドカラー、タイポ密度など）を切り替え可能
+Cursor、Copilot、Claude Code などで提案書、振り返り、監査資料を書くとき、チャットログはそのまま納品しにくいことが多いです。レイアウトが不安定、検索しにくい、別言語や別形式での再配布も手間がかかります。AIRP は統一された **JSON Schema** でレポート構造を制約し（Notion の複数 **Block** コンテンツモデルに類似）、まず構造化ソースファイル **`.airp.json`** を生成し、**レンダラー** 経由で **HTML**（閲覧/プレゼン）または **Markdown**（ドキュメントフロー/再編集）をエクスポートします。
 
 リポジトリ：`https://github.com/maosong-ai/airp`
 
-## ユースケース
+## 対象ユーザー
 
-- **リファクタ/移行レポート**：範囲、影響、変更一覧、ロールバック戦略、リスクと検証
-- **監査/診断レポート**：重要度分類、エビデンスチェーン、修復提案、アクションアイテム追跡
-- **技術提案/レビュー記録**：意思決定、トレードオフ、前提、マイルストーン、受け入れ基準
+| 役割 | 典型的なレポート |
+|---|---|
+| プロジェクトマネージャー / プロダクト | 立項説明、マイルストーン振り返り、リスクと ToDo |
+| オペレーション / ビジネス | キャンペーン総括、ベンチマーク分析、意思決定とフォローアップ |
+| 内部監査 / 品質管理 | 重要度分類、エビデンスチェーン、是正と検証チェックリスト |
+| 開発 / アーキテクチャ | 移行計画、技術レビュー、テストと変更説明 |
 
-## 仕組み（AI から成果物レポートへ）
+## コア機能一覧
 
-AIRP は「AI の返信内容」を検証可能な構造化データに変換し、レンダラーに渡して読みやすく共有できる成果物を出力します（現時点では HTML、将来的に他のレンダラーも拡張予定）。
+| 機能 | 説明 |
+|---|---|
+| **構造化ソースファイル** | `.airp.json` は Schema に従ってコンテンツを整理。生成後に自動検証し、「見た目は完成だが実は欠落がある」状況を減らす |
+| **コンテンツと表示の分離** | 本文はソースのみをメンテナンス。HTML / Markdown はレンダラーがエクスポート。レイアウト変更で本文を書き直す必要なし |
+| **多言語（i18n）** | 1 つのソースに複数言語の文案（`i18n.locales`）を保持可能。エクスポートや閲覧時に言語を選択。UI は中・英・日・韓・独・仏・露・西・葡・意などに対応 |
+| **テーマとレイアウト** | HTML エクスポートでライト/ダークテーマなど外観を切替。**本文は変更しない** |
+| **拡張性** | 今後 PDF、Excel、Notion などのエクスポート方式に対応予定 |
 
-```mermaid
-flowchart LR
-  A[AI/エージェントの返信] --> B[構造化：.airp.json を生成]
-  B --> C{JSON Schema 検証<br/>SSOT}
-  C -- 成功 --> D[レンダラー]
-  C -- 失敗 --> E[検証失敗：成果物が無効<br/>修正して再生成]
-  D --> H[HTML レンダラー - 同梱<br/>.html を出力]
-  D -. 拡張可能 .-> P[PDF レンダラー - 予定]
-  D -. 拡張可能 .-> X[Excel レンダラー - 予定]
-  D -. 拡張可能 .-> N[Notion レンダラー - 予定]
-```
+## クイックスタート
 
-## クイックスタート（skill のインストール）
-
-インストール：
+**1. Skill のインストール**
 
 ```bash
 npx skills add maosong-ai/airp
 ```
 
-コマンド一覧：
+**2. コマンドと成果物**
 
-| Command | Output | Purpose |
+| コマンド | 成果物 | 用途 |
 |---|---|---|
-| `/airp` | `*.airp.json` | 構造化された機械検証可能レポート（アーカイブ/索引/後処理向け） |
-| `/airp-html` | `*.html`（単一ファイル） | 既存の `*.airp.json` を共有・閲覧用の単一 HTML にレンダリング |
-| `/airp-dashboard` | ローカル Dashboard（ブラウザ） | `.airp.json` のアップロード/閲覧/レンダリング（インタラクティブ表示） |
+| `/airp` | `*.airp.json` | 構造化ソースの生成と検証（アーカイブ、検索、後処理、再エクスポート） |
+| `/airp-dashboard` | ローカル Dashboard | ブラウザでソースファイルをプレビュー。HTML / Markdown などのオンラインエクスポートも可能 |
+| `/airp-html` | `*.html` | 既存ソースを単一 HTML にレンダリング。共有とプレゼン向け |
+| `/airp-markdown` | `*.md` | 指定 locale で Markdown をエクスポート。Yuque、Feishu、GitHub など向け |
 
-## Workspace コマンド
+**3. 推奨フロー**
 
-リポジトリのルートで実行します：
-
-```bash
-pnpm install
-pnpm run test:unit
-pnpm run test:integration
-pnpm run test
-pnpm run build
-pnpm run build:skills
+```
+/airp  →  ソース  →  /airp-html      →  HTML      # 外部向け閲覧、プレゼン
+/airp  →  ソース  →  /airp-markdown  →  Markdown  # ドキュメント、継続編集
 ```
 
-補足：
+**4. 出力ディレクトリ**
 
-- `test:unit` は `renderer` パッケージで実行されます。
-- `test:integration` は `tests` パッケージで実行され、compile-first の CLI 生成物検証を含みます。
-- `build:skills` は renderer のアセットをビルドし、`skills/*/scripts/*.mjs` の配布用 CLI を生成します。
+デフォルト：プロジェクト内 `.docs/airp/`。`--out <dir>` でパスを指定可能。
 
-## コア原則：Schema は単一の真実の源（SSOT）
+## ワークフロー
 
-AIRP の **JSON Schema** は生成と検証の唯一の真実の源です：`./airp-document.schema.json`
+```mermaid
+flowchart LR
+  A[AI/Agent 生成内容] --> B[構造化ソース<br/>.airp.json]
+  B --> C{AIRP JSON Schema 検証}
+  C -- 通過 --> D[レンダラー]
+  C -- 失敗 --> E[修正後再生成]
+  D --> H[HTML]
+  D --> M[Markdown]
+  D -. 計画中 .-> P[PDF / Excel / Notion …]
+```
 
-- **検証可能**：「正しそうな自然言語」を、制約を満たすか失敗するかの構造化成果物に変換し、疑似成功を防ぎます。
-- **レンダリング可能/拡張可能**：コンテンツは安定した schema で表現し、レンダラーは表示だけに集中します。PDF/Excel/Notion などの追加はコンテンツ生成ロジックの変更を不要にします。
-- **アーカイブ/索引/比較が容易**：`*.airp.json` をソースとして保存でき、検索、集計、差分比較、自動処理に適します（純 HTML/Markdown より機械処理向き）。
-- **AI/Agent に優しくトークン効率が良い**：JSON の境界が明確で、AI が安定して読み書きし制約に従いやすくなります。構造化フィールドの再利用で冗長な説明を減らし、同等の情報密度なら長文 Markdown/HTML より短くなることが多く、後続工程で再利用しやすいです。
-- **進化可能だが暴走しない**：schema が required/optional と `additionalProperties: false` を明示し、フォーマット進化の境界と互換性を制御します。
+## なぜ「ソース + レンダリング」が必要か
 
-## サポートされる Block
+AIRP の **JSON Schema**（`airp-document.schema.json`）は生成と検証の**唯一の規範（SSOT）**です：
 
-> 正式な一覧：schema 内の `blocks[].type` にある `const` 値（大小文字区別）。
+- **検証可能**：フィールドと章に制約があり、検証失敗は未完成とみなし、疑似納品を防ぐ。
+- **再利用可能**：ソースはバージョン比較、検索、自動化に適する。HTML / Markdown は人間向け閲覧。
+- **AI にとって安定・トークン効率が良い**：Block 構造の境界が明確。長文レポートは自由 HTML より逸脱しにくく、同等情報量では通常よりコンパクト。
+- **多形式で重複作業なし**：ソースを 1 回更新し、必要に応じて Web やドキュメントをエクスポート。
 
-| Block (type) | Purpose |
+レポート本文は複数の **Block**（章 `section`、表 `table`、リスク `risk`、フロー図 `mermaid` など）で構成。完全な型一覧は Schema を参照。日常ではレポート種別（「監査レポート」「プロジェクト振り返り」など）を伝えるだけで、`/airp` が適切な Block 組み合わせを選びます。
+
+### コンテンツモジュール（用途別）
+
+| カテゴリ | 典型的な Block |
 |---|---|
-| `hero` | 冒頭サマリーと数値結論のためのメトリクスカード |
-| `section` | 章のコンテナ（blocks をネスト）でアウトライン/構造を整理 |
-| `group` | 関連コンテンツをまとめるグループコンテナ（blocks をネスト） |
-| `divider` | ブロック間の視覚的な区切り |
-| `spacer` | 余白（レイアウトのリズム調整） |
-| `heading` | 非コンテナの見出し（小見出し/階層見出し） |
-| `paragraph` | 本文（Markdown） |
-| `lead` | 章冒頭の導入/要約段落 |
-| `pullQuote` | 重要な結論/主張を強調する引用 |
-| `blockquote` | 外部資料や原文の引用、エビデンス引用 |
-| `callout` | リスク/注意/結論を強調する通知ブロック（info/warn/success など） |
-| `bulletList` | 箇条書き（順不同） |
-| `numberedList` | 手順/フロー用の番号付きリスト |
-| `checklist` | 検証項目/ToDo/受け入れのチェックリスト |
-| `definitionList` | 用語-説明の定義リスト |
-| `table` | 表形式データ |
-| `comparison` | 並列比較（例：案 A vs 案 B、blocks をネスト） |
-| `collection` | カード/パネルの集合（各アイテムに blocks をネスト） |
-| `keyValueList` | パラメータ/設定/要約のキー・バリュー |
-| `statusBoard` | タスク/モジュールの状態・進捗ボード |
-| `code` | コード、コマンド、ログ断片 |
-| `codeDiff` | 変更差分（Diff） |
-| `fileTree` | ディレクトリ/モジュールのツリー |
-| `fileChangeList` | 変更ファイル一覧と説明 |
-| `mermaid` | Mermaid 図（フロー/シーケンス/アーキテクチャなど） |
-| `architectureOverview` | アーキテクチャ概要（Mermaid + 説明） |
-| `flowSteps` | フローをステップカードとして表現 |
-| `decision` | 意思決定の記録（選択肢と理由） |
-| `risk` | リスク（内容、レベル、緩和、検証） |
-| `assumption` | 前提（仮定）と検証方法 |
-| `constraint` | 制約（技術/ビジネス/リソース） |
-| `openQuestion` | 未決事項（要確認/フォローアップ） |
-| `timeline` | タイムライン（時系列の出来事/マイルストーン） |
-| `roadmap` | ロードマップ（フェーズ、マイルストーン、リリーステンポ） |
-| `requirementTrace` | 要求-実装-テストのトレーサビリティ |
-| `testResult` | テスト結果（項目、結果、証拠） |
-| `apiInventory` | API 一覧（用途、リスク、変更点） |
-| `linkList` | 関連リンク、PR、ドキュメント |
-| `glossary` | 用語集（略語含む） |
-| `citation` | 参考文献/出典（エビデンスの根拠） |
-| `image` | 画像（スクリーンショット、図、証拠） |
-| `embed` | 外部コンテンツ埋め込み（iframe、可視化リンク等） |
-| `collapsible` | 折りたたみブロック（blocks をネスト） |
-| `tabs` | タブ（同一位置で複数内容を切替、blocks をネスト） |
-| `appendix` | 付録（blocks をネスト） |
-| `agentNote` | Agent 向けメモ（生成時の補足、嗜好、ヒント：作者/レビュー向け） |
+| 冒頭と要約 | `hero`、`lead`、`pullQuote` |
+| 本文とレイアウト | `section`、`paragraph`、`table`、`callout`、各種リスト |
+| フローと図示 | `flowSteps`、`mermaid`、`timeline`、`roadmap` |
+| 意思決定とリスク | `comparison`、`decision`、`risk`、`assumption`、`openQuestion` |
+| 実行と検証 | `checklist`、`statusBoard`、`testResult`、`requirementTrace` |
+| 付録と参考 | `collapsible`、`tabs`、`appendix`、`glossary`、`citation` |
 
-## ロードマップ
+## よくある質問
 
-- **パスワード保護された成果物**：`*.airp.json` / `*.html` を暗号化/復号し、配布と保管の安全性を向上。
-- **複数ページ文書**：1 つのレポートをページ/章に分割して出力し、長文の閲覧、印刷、モジュール別納品を容易に。
-- **レンダラー拡張**：schema を安定（SSOT）に保ったまま、PDF / Excel / Notion などへ拡張。
+### どのファイルを残すべきか？
 
-## FAQ
+| 目的 | 推奨 |
+|---|---|
+| チームアーカイブ、機械処理、再エクスポート | `.airp.json`（ソース） |
+| メール/IM 共有、プレゼン閲覧 | `.html` |
+| ドキュメント編集、Markdown ツールチェーン連携 | `.md`（`/airp-markdown` + locale） |
 
-### 成果物はどこに出力されますか？
+### 多言語の使い方
 
-- デフォルト：プロジェクト内の `.docs/airp/`
-- 上書き：`--out <dir>`
+- プロンプトで言語を指定（例：「/airp <プロンプト> 中日英三言語で生成」）→ ソースに三言語文案を含む。
+- 未指定時（例：「/airp <プロンプト>」）→ Skill は**現在の会話言語**で単一言語ソースを生成。
 
-### どのファイルを保存すべきですか？
+### AIRP vs HTML vs Markdown
 
-- **アーカイブ/後処理が必要**：`*.airp.json`（構造化ソース）を保存
-- **共有/閲覧が必要**：`*.html`（単一ファイルレポート）を保存
+三者は排他的ではありません：**HTML / Markdown は閲覧向けのエクスポート形態です。**
 
-> Tip：`/airp` で `*.airp.json` を生成し、その後 `/airp-html` で `*.html` を出力するチェーン利用がおすすめです。
-> Example: `/airp /airp-html xxxxxx`
+| 比較項目 | AIRP（`.airp.json`） | AI に直接 HTML を書かせる | AI に直接 Markdown を書かせる |
+|---|---|---|---|
+| **役割** | 構造化ソース + Schema 検証 | 完成展示ページ | 完成ドキュメント |
+| **構造制約** | Block + Schema、生成後検証可能 | Prompt 依存、長ページで Block 欠落・レイアウト漂移 | 執筆習慣依存、長文で階層不一致 |
+| **多言語** | 多言語文案構造 | 別ページ保存や手動コピーが多い | 複数 `.md` が必要なことが多い |
+| **多形式エクスポート** | 同一ソース → HTML / Markdown（今後 PDF/Excel 等） | Markdown 変換は書き直しまたは劣化変換 | HTML は書き直しまたはスタイル追加 |
+| **人間向け閲覧** | `/airp-html` または `/airp-markdown` でレンダリング | 単一ファイルを開くだけ、レイアウト完備 | プラットフォームでレンダリング、プレーンテキスト感 |
+| **再編集** | AI がソースを直接編集。Markdown エクスポートで部分編集も可 | HTML 編集コスト高 | ドキュメントツールで最も自然 |
+| **アーカイブ / 検索 / diff** | 構造化、フィールド安定 | タグとスタイル混在、意味抽出困難 | テキスト向き、フィールド非統一 |
+| **AI 多ラウンド修正** | Block フィールド編集、境界明確 | タグ多、ファイル長、修正漏れしやすい | 中程度。構造は自律維持 |
+| **Token / コンテキスト** | モジュール化 JSON、冗長性少 | 同内容でも体積大、占有高 | 中程度 |
+| **レイアウトとテーマ** | レンダリング層で切替、ソース不変 | スタイルがファイル内に埋込 | ターゲットプラットフォーム依存 |
+| **向いている** | 正式レポート、多言語、多ラウンド反復、チーム統一テンプレート | 一回限り単ページ、強い展示 | 短文、メモ、Markdown 最終稿 |
+| **向いていない** | 数行程度・アーカイブ不要 | 強い検証、多言語、多形式パイプライン | 強い Schema、ワンクリック多言語エクスポート |
+
+> **結論**：「一貫性 + 検査可能な構造 + 一つのコンテンツで複数エクスポート」が必要なら AIRP。最終形式が明確で一版のみなら、直接 HTML または Markdown で十分。
+
+## 今後の計画
+
+- ソースとエクスポート成果物の暗号化
+- マルチ Sheet ページエクスポート
+- PDF、Excel、Notion などのレンダラー
 
 ---
 
-## License
+## ライセンス
 
 MIT
