@@ -1,5 +1,6 @@
 import type { AirpDocument, Block, LocalizedString } from "@/lib/airp-schema";
 import { createI18nContext, type I18nContext } from "@/lib/i18n";
+import { tRenderer } from "@/lib/renderer-i18n";
 
 export type EmitContext = I18nContext & {
   headingLevel: number;
@@ -271,13 +272,16 @@ export function emitBlock(
         )
       );
 
-    case "code":
-      return fence(block.code, block.language ?? block.filename);
+    case "code": {
+      let out = block.filename ? `\`${block.filename}\`\n\n` : "";
+      return out + fence(block.code, block.language);
+    }
 
     case "codeDiff": {
+      let out = block.filename ? `\`${block.filename}\`\n\n` : "";
       const lang = block.language ?? "diff";
       if (block.unified) {
-        return fence(block.unified, lang);
+        return out + fence(block.unified, lang);
       }
       const diff = [
         block.filename ? `--- a/${block.filename}` : "--- a/file",
@@ -287,7 +291,7 @@ export function emitBlock(
       ]
         .filter(Boolean)
         .join("\n");
-      return fence(diff, lang);
+      return out + fence(diff, lang);
     }
 
     case "fileTree": {
@@ -307,7 +311,17 @@ export function emitBlock(
         }
       }
       walk(block.root, "");
-      return fence(lines.join("\n"), "text");
+      let out = mdHeading(
+        ctx.headingLevel,
+        ctx.ui(
+          "fileTreeToolbarTitle",
+          tRenderer(ctx.locale, "fileTreeToolbarTitle")
+        )
+      );
+      if (block.caption) {
+        out += `_${t(block.caption)}_\n\n`;
+      }
+      return out + fence(lines.join("\n"), "text");
     }
 
     case "fileChangeList":

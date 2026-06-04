@@ -544,6 +544,11 @@ function BlockNode({
               </button>
             </div>
           </div>
+          {block.caption ? (
+            <p className="relative mb-3 font-sans text-muted-foreground text-xs">
+              {ctx.t(block.caption)}
+            </p>
+          ) : null}
           <div className="airp-file-tree-body">
             <FileTreeNode ctx={ctx} node={block.root} depth={0} />
           </div>
@@ -1034,9 +1039,6 @@ function FileTreeNode({
             <Folder className="airp-file-tree-folder-closed" />
             <FolderOpen className="airp-file-tree-folder-open" />
           </span>
-          <span className="airp-file-tree-kind">
-            {ctx.ui("fileTreeDirLabel", tRenderer(ctx.locale, "fileTreeDirLabel"))}
-          </span>
           {node.change ? <ChangeBadge change={node.change} /> : null}
           <span
             className={cn(
@@ -1067,9 +1069,6 @@ function FileTreeNode({
       <span aria-hidden className="airp-file-tree-caret airp-file-tree-caret--placeholder" />
       <span aria-hidden className="airp-file-tree-node-icon airp-file-tree-node-icon--file">
         <File className="airp-file-tree-file" />
-      </span>
-      <span className="airp-file-tree-kind airp-file-tree-kind--file">
-        {ctx.ui("fileTreeFileLabel", tRenderer(ctx.locale, "fileTreeFileLabel"))}
       </span>
       {node.change ? <ChangeBadge change={node.change} /> : null}
       <span

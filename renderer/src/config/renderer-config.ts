@@ -3,10 +3,10 @@ import type { ThemePreset } from "@/lib/themes";
 /** Renderer chrome settings (locales, storage keys, defaults). Adjust here to extend. */
 export const rendererConfig = {
   locales: [
+    "en",
     "ja-JP",
     "zh-CN",
     "ko-KR",
-    "en",
     "de-DE",
     "fr-FR",
     "ru-RU",

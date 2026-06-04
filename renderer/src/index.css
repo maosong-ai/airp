@@ -515,12 +515,6 @@
 .airp-file-tree-node-icon--file {
   @apply text-muted-foreground;
 }
-.airp-file-tree-kind {
-  @apply rounded border border-border/80 bg-muted/70 px-1.5 py-0.5 font-semibold text-[9px] tracking-wide text-muted-foreground uppercase;
-}
-.airp-file-tree-kind--file {
-  @apply bg-transparent text-muted-foreground/90;
-}
 .airp-file-tree-name {
   @apply break-all text-foreground;
 }

@@ -24,9 +24,7 @@ export type RendererUiKey =
   | "emptyHintDetail"
   | "fileTreeToolbarTitle"
   | "fileTreeExpandAll"
-  | "fileTreeCollapseAll"
-  | "fileTreeDirLabel"
-  | "fileTreeFileLabel";
+  | "fileTreeCollapseAll";
 
 type UiTable = Record<RendererUiKey, string>;
 
@@ -52,8 +50,6 @@ const UI: Record<string, UiTable> = {
     fileTreeToolbarTitle: "構成",
     fileTreeExpandAll: "すべて展開",
     fileTreeCollapseAll: "すべて折りたたむ",
-    fileTreeDirLabel: "DIR",
-    fileTreeFileLabel: "FILE",
     emptyHint: "AIRP Report Viewer",
     emptyHintDetail:
       ".airp.json をアップロードしてレポートを表示します。言語はドキュメントの対応言語から選択できます。",
@@ -79,8 +75,6 @@ const UI: Record<string, UiTable> = {
     fileTreeToolbarTitle: "目录结构",
     fileTreeExpandAll: "全部展开",
     fileTreeCollapseAll: "全部折叠",
-    fileTreeDirLabel: "目录",
-    fileTreeFileLabel: "文件",
     emptyHint: "AIRP 报告查看器",
     emptyHintDetail: "上传 .airp.json 文件以渲染报告。语言选项来自文档支持的语言列表。",
   },
@@ -105,8 +99,6 @@ const UI: Record<string, UiTable> = {
     fileTreeToolbarTitle: "구조",
     fileTreeExpandAll: "모두 펼치기",
     fileTreeCollapseAll: "모두 접기",
-    fileTreeDirLabel: "폴더",
-    fileTreeFileLabel: "파일",
     emptyHint: "AIRP Report Viewer",
     emptyHintDetail:
       ".airp.json 파일을 업로드해 리포트를 렌더링하세요. 언어 옵션은 문서의 지원 언어를 따릅니다.",
@@ -132,8 +124,6 @@ const UI: Record<string, UiTable> = {
     fileTreeToolbarTitle: "Structure",
     fileTreeExpandAll: "Expand all",
     fileTreeCollapseAll: "Collapse all",
-    fileTreeDirLabel: "DIR",
-    fileTreeFileLabel: "FILE",
     emptyHint: "AIRP Report Viewer",
     emptyHintDetail:
       "Upload a .airp.json file to render your report. Language options come from the document.",
@@ -159,8 +149,6 @@ const UI: Record<string, UiTable> = {
     fileTreeToolbarTitle: "Struktur",
     fileTreeExpandAll: "Alle aufklappen",
     fileTreeCollapseAll: "Alle einklappen",
-    fileTreeDirLabel: "ORDNER",
-    fileTreeFileLabel: "DATEI",
     emptyHint: "AIRP Report Viewer",
     emptyHintDetail:
       "Lade eine .airp.json hoch, um den Bericht zu rendern. Sprachoptionen kommen aus dem Dokument.",
@@ -186,8 +174,6 @@ const UI: Record<string, UiTable> = {
     fileTreeToolbarTitle: "Structure",
     fileTreeExpandAll: "Tout développer",
     fileTreeCollapseAll: "Tout réduire",
-    fileTreeDirLabel: "DOSSIER",
-    fileTreeFileLabel: "FICHIER",
     emptyHint: "AIRP Report Viewer",
     emptyHintDetail:
       "Importez un fichier .airp.json pour afficher le rapport. Les langues disponibles viennent du document.",
@@ -213,8 +199,6 @@ const UI: Record<string, UiTable> = {
     fileTreeToolbarTitle: "Структура",
     fileTreeExpandAll: "Развернуть все",
     fileTreeCollapseAll: "Свернуть все",
-    fileTreeDirLabel: "ПАПКА",
-    fileTreeFileLabel: "ФАЙЛ",
     emptyHint: "AIRP Report Viewer",
     emptyHintDetail:
       "Загрузите .airp.json, чтобы отрисовать отчёт. Список языков берется из документа.",
@@ -240,8 +224,6 @@ const UI: Record<string, UiTable> = {
     fileTreeToolbarTitle: "Estructura",
     fileTreeExpandAll: "Expandir todo",
     fileTreeCollapseAll: "Contraer todo",
-    fileTreeDirLabel: "CARPETA",
-    fileTreeFileLabel: "ARCHIVO",
     emptyHint: "AIRP Report Viewer",
     emptyHintDetail:
       "Sube un archivo .airp.json para renderizar el informe. Las opciones de idioma provienen del documento.",
@@ -267,8 +249,6 @@ const UI: Record<string, UiTable> = {
     fileTreeToolbarTitle: "Estrutura",
     fileTreeExpandAll: "Expandir tudo",
     fileTreeCollapseAll: "Recolher tudo",
-    fileTreeDirLabel: "PASTA",
-    fileTreeFileLabel: "ARQUIVO",
     emptyHint: "AIRP Report Viewer",
     emptyHintDetail:
       "Envie um arquivo .airp.json para renderizar o relatório. As opções de idioma vêm do documento.",
@@ -294,8 +274,6 @@ const UI: Record<string, UiTable> = {
     fileTreeToolbarTitle: "Struttura",
     fileTreeExpandAll: "Espandi tutto",
     fileTreeCollapseAll: "Comprimi tutto",
-    fileTreeDirLabel: "CARTELLA",
-    fileTreeFileLabel: "FILE",
     emptyHint: "AIRP Report Viewer",
     emptyHintDetail:
       "Carica un file .airp.json per renderizzare il report. Le opzioni lingua provengono dal documento.",
