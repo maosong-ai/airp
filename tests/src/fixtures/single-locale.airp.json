@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0.0",
+  "meta": {
+    "title": {
+      "zh-CN": "单语言报告"
+    },
+    "subtitle": {
+      "zh-CN": "用于 CLI 集成测试"
+    },
+    "kind": "plan-review",
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  "i18n": {
+    "defaultLocale": "zh-CN",
+    "locales": ["zh-CN"]
+  },
+  "blocks": [
+    {
+      "type": "heading",
+      "level": 2,
+      "text": {
+        "zh-CN": "概览"
+      }
+    },
+    {
+      "type": "paragraph",
+      "text": {
+        "zh-CN": "这是测试文档。"
+      }
+    }
+  ]
+}

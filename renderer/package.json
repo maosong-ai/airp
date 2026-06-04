@@ -9,8 +9,7 @@
     "preview": "vite preview",
     "render:html": "tsx scripts/render-html.ts",
     "render:markdown": "tsx scripts/render-markdown.ts",
-    "validate": "tsx scripts/validate-airp.ts",
-    "contract": "tsx scripts/contract-render.ts"
+    "validate": "tsx scripts/validate-airp.ts"
   },
   "dependencies": {
     "@mermaid-js/layout-elk": "^0.1.9",

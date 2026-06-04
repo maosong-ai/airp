@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.0.0",
+  "meta": {
+    "title": {
+      "zh-CN": "多语言报告",
+      "en": "Multilingual Report",
+      "ja": "多言語レポート"
+    },
+    "subtitle": {
+      "zh-CN": "用于参数匹配测试",
+      "en": "Used for parameter matching tests",
+      "ja": "パラメータ整合性テスト用"
+    },
+    "kind": "plan-review",
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  "i18n": {
+    "defaultLocale": "zh-CN",
+    "locales": ["zh-CN", "en", "ja"]
+  },
+  "blocks": [
+    {
+      "type": "heading",
+      "level": 2,
+      "text": {
+        "zh-CN": "目标",
+        "en": "Goal",
+        "ja": "目標"
+      }
+    },
+    {
+      "type": "paragraph",
+      "text": {
+        "zh-CN": "验证 locale-mode 行为",
+        "en": "Validate locale-mode behavior",
+        "ja": "locale-mode の動作を検証"
+      }
+    }
+  ]
+}
