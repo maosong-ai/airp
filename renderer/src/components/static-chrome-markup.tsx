@@ -4,7 +4,7 @@ import { ChromeThemePanel } from "@/components/chrome/chrome-theme-panel";
 import { ChromeLocalePanel } from "@/components/chrome/chrome-locale-panel";
 import { IconLanguages, IconPalette } from "@/components/chrome/chrome-icons";
 import type { AirpDocument } from "@/lib/airp-schema";
-import { tRenderer, themePresetLabel } from "@/lib/renderer-i18n";
+import { tRenderer, localeDisplayName, themePresetLabel } from "@/lib/renderer-i18n";
 import type { ThemePreset } from "@/lib/themes";
 
 export interface StaticChromeMarkupProps {
@@ -43,6 +43,7 @@ export function StaticChromeMarkup({
             ariaLabel={tRenderer(uiLocale, "themeMenu")}
             icon={<IconPalette className="text-muted-foreground" />}
             id="airp-theme-popover"
+            interaction="hover"
             title={themePresetLabel(uiLocale, themePreset)}
             triggerAttributes={{ "data-airp-theme-trigger": true }}
           >
@@ -59,7 +60,8 @@ export function StaticChromeMarkup({
               ariaLabel={tRenderer(uiLocale, "localeMenu")}
               icon={<IconLanguages className="text-muted-foreground" />}
               id="airp-locale-popover"
-              title={tRenderer(uiLocale, "localeMenu")}
+              interaction="hover"
+              title={localeDisplayName(activeLocale)}
               triggerAttributes={{ "data-airp-locale-trigger": true }}
             >
               <div data-airp-control="locale">

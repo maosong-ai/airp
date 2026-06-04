@@ -1,9 +1,14 @@
 import { Button } from "@/components/ui/button";
+import {
+  ToolbarHoverMenu,
+  ToolbarMenuItem,
+} from "@/components/toolbar-hover-menu";
 import { tRenderer } from "@/lib/renderer-i18n";
 import type { AirpDocument } from "@/lib/airp-schema";
 import type { RenderTarget } from "@/pipeline/types";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronRight, Download, Loader2 } from "lucide-react";
+import type { ReactNode } from "react";
 
 export type ExportMenuProps = {
   doc: AirpDocument | null;
@@ -13,6 +18,38 @@ export type ExportMenuProps = {
   onExportHtmlAll?: () => void;
   onExportHtmlSingle?: (locale: string) => void;
 };
+
+function ExportSpinner({ show }: { show: boolean }) {
+  if (!show) return null;
+  return <Loader2 className="ml-auto size-3.5 animate-spin" />;
+}
+
+function ExportSubmenu({
+  label,
+  disabled,
+  children,
+}: {
+  label: string;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "group/export-sub relative",
+        disabled && "pointer-events-none opacity-50"
+      )}
+    >
+      <div className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+        <span>{label}</span>
+        <ChevronRight className="size-3.5 opacity-70" />
+      </div>
+      <div className="invisible absolute top-0 left-full z-50 ml-1 min-w-[140px] rounded-lg border border-border bg-card p-1 opacity-0 shadow-md transition-opacity group-hover/export-sub:visible group-hover/export-sub:opacity-100">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export function ExportMenu({
   doc,
@@ -24,102 +61,81 @@ export function ExportMenu({
 }: ExportMenuProps) {
   const busy = exporting != null;
   const locales = doc?.i18n.locales ?? [];
+  const multiLocale = locales.length > 1;
+  const singleLocale = locales.length === 1 ? locales[0]! : null;
+
+  const trigger = (
+    <Button disabled={busy} size="sm" type="button" variant="secondary">
+      {busy ? (
+        <Loader2 className="mr-1.5 size-4 animate-spin" />
+      ) : (
+        <Download className="mr-1.5 size-4" />
+      )}
+      {tRenderer(uiLocale, "exportMenu")}
+      <ChevronDown className="ml-1 size-3.5 opacity-70" />
+    </Button>
+  );
 
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
-        <Button disabled={busy} size="sm" variant="secondary">
-          {busy ? (
-            <Loader2 className="mr-1.5 size-4 animate-spin" />
-          ) : (
-            <Download className="mr-1.5 size-4" />
-          )}
-          {tRenderer(uiLocale, "exportMenu")}
-          <ChevronDown className="ml-1 size-3.5 opacity-70" />
-        </Button>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align="start"
-          className="z-50 min-w-[200px] rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
-          sideOffset={4}
-        >
-          {/* Markdown submenu */}
-          <DropdownMenu.Sub>
-            <DropdownMenu.SubTrigger
-              className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm outline-none hover:bg-muted focus:bg-muted"
-              disabled={busy}
-            >
-              {tRenderer(uiLocale, "exportMarkdown")}
-              <ChevronRight className="ml-2 size-3.5 opacity-70" />
-            </DropdownMenu.SubTrigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.SubContent
-                className="z-50 min-w-[140px] rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
-                sideOffset={4}
+    <ToolbarHoverMenu
+      align="start"
+      ariaLabel={tRenderer(uiLocale, "exportMenu")}
+      contentClassName="min-w-[200px] p-1"
+      trigger={trigger}
+    >
+      {multiLocale ? (
+        <div className="flex flex-col gap-0.5">
+          <ExportSubmenu
+            disabled={busy}
+            label={tRenderer(uiLocale, "exportMarkdown")}
+          >
+            {locales.map((locale) => (
+              <ToolbarMenuItem
+                disabled={busy}
+                key={locale}
+                onClick={() => onExportMarkdown?.(locale)}
               >
-                {locales.map((locale) => (
-                  <DropdownMenu.Item
-                    key={locale}
-                    className="flex cursor-pointer items-center rounded-md px-2 py-1.5 text-sm outline-none hover:bg-muted focus:bg-muted"
-                    disabled={busy}
-                    onSelect={() => onExportMarkdown?.(locale)}
-                  >
-                    {locale}
-                    {exporting === "markdown" ? (
-                      <Loader2 className="ml-auto size-3.5 animate-spin" />
-                    ) : null}
-                  </DropdownMenu.Item>
-                ))}
-              </DropdownMenu.SubContent>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Sub>
+                {locale}
+                <ExportSpinner show={exporting === "markdown"} />
+              </ToolbarMenuItem>
+            ))}
+          </ExportSubmenu>
 
-          {/* HTML submenu */}
-          <DropdownMenu.Sub>
-            <DropdownMenu.SubTrigger
-              className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm outline-none hover:bg-muted focus:bg-muted"
-              disabled={busy}
-            >
-              {tRenderer(uiLocale, "exportHtml")}
-              <ChevronRight className="ml-2 size-3.5 opacity-70" />
-            </DropdownMenu.SubTrigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.SubContent
-                className="z-50 min-w-[160px] rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
-                sideOffset={4}
+          <ExportSubmenu disabled={busy} label={tRenderer(uiLocale, "exportHtml")}>
+            <ToolbarMenuItem disabled={busy} onClick={() => onExportHtmlAll?.()}>
+              {tRenderer(uiLocale, "exportHtmlAll")}
+              <ExportSpinner show={exporting === "html"} />
+            </ToolbarMenuItem>
+            {locales.map((locale) => (
+              <ToolbarMenuItem
+                disabled={busy}
+                key={locale}
+                onClick={() => onExportHtmlSingle?.(locale)}
               >
-                {/* All languages option */}
-                <DropdownMenu.Item
-                  className="flex cursor-pointer items-center rounded-md px-2 py-1.5 text-sm outline-none hover:bg-muted focus:bg-muted"
-                  disabled={busy}
-                  onSelect={() => onExportHtmlAll?.()}
-                >
-                  {tRenderer(uiLocale, "exportHtmlAll")}
-                  {exporting === "html" ? (
-                    <Loader2 className="ml-auto size-3.5 animate-spin" />
-                  ) : null}
-                </DropdownMenu.Item>
-
-                {/* Single locale options */}
-                {locales.map((locale) => (
-                  <DropdownMenu.Item
-                    key={locale}
-                    className="flex cursor-pointer items-center rounded-md px-2 py-1.5 text-sm outline-none hover:bg-muted focus:bg-muted"
-                    disabled={busy}
-                    onSelect={() => onExportHtmlSingle?.(locale)}
-                  >
-                    {locale}
-                    {exporting === "html" ? (
-                      <Loader2 className="ml-auto size-3.5 animate-spin" />
-                    ) : null}
-                  </DropdownMenu.Item>
-                ))}
-              </DropdownMenu.SubContent>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Sub>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+                {locale}
+                <ExportSpinner show={exporting === "html"} />
+              </ToolbarMenuItem>
+            ))}
+          </ExportSubmenu>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-0.5">
+          <ToolbarMenuItem
+            disabled={busy || !singleLocale}
+            onClick={() => singleLocale && onExportMarkdown?.(singleLocale)}
+          >
+            {tRenderer(uiLocale, "exportMarkdown")}
+            <ExportSpinner show={exporting === "markdown"} />
+          </ToolbarMenuItem>
+          <ToolbarMenuItem
+            disabled={busy || !singleLocale}
+            onClick={() => singleLocale && onExportHtmlSingle?.(singleLocale)}
+          >
+            {tRenderer(uiLocale, "exportHtml")}
+            <ExportSpinner show={exporting === "html"} />
+          </ToolbarMenuItem>
+        </div>
+      )}
+    </ToolbarHoverMenu>
   );
 }

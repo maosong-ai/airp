@@ -12,6 +12,8 @@ export interface StaticChromePopoverProps {
   panelClassName?: string;
   triggerAttributes?: Record<string, string | number | boolean | undefined>;
   align?: "start" | "end";
+  /** Dashboard parity: locale uses hover; theme uses click. */
+  interaction?: "click" | "hover";
 }
 
 export function StaticChromePopover({
@@ -24,6 +26,7 @@ export function StaticChromePopover({
   panelClassName,
   triggerAttributes,
   align = "end",
+  interaction = "click",
 }: StaticChromePopoverProps) {
   const panelId = `${id}-panel`;
   return (
@@ -31,6 +34,7 @@ export function StaticChromePopover({
       className={cn("relative", className)}
       data-airp-popover-root
       data-airp-popover-align={align}
+      {...(interaction === "hover" ? { "data-airp-popover-hover": true } : {})}
     >
       <Button
         aria-controls={panelId}

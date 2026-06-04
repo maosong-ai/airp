@@ -1,3 +1,4 @@
+import { AirpTabs } from "@/components/airp-tabs";
 import { MermaidDiagram } from "@/components/mermaid-diagram";
 import { MermaidStaticShell } from "@/components/mermaid-static-shell";
 import { RichText } from "@/components/rich-text";
@@ -9,7 +10,6 @@ import { slugify, type I18nContext } from "@/lib/i18n";
 import { tRenderer } from "@/lib/renderer-i18n";
 import { cn } from "@/lib/utils";
 import * as Collapsible from "@radix-ui/react-collapsible";
-import * as Tabs from "@radix-ui/react-tabs";
 import type { ClassValue } from "clsx";
 import {
   ChevronDown,
@@ -98,31 +98,25 @@ function BlockNode({
       const level = block.level ?? 2;
       const headingLevel = Math.min(level + 1, 4);
       const id = block.id ?? slugify(ctx.t(block.title));
+      const title = ctx.t(block.title);
+      const TitleTag = headingLevel === 2 ? "h2" : headingLevel === 3 ? "h3" : "h4";
       return (
-        <section className={blockRoot("mb-10 scroll-mt-24")} id={id}>
-          {headingLevel === 2 ? (
-            <h2 className="mb-3 border-report-accent border-b pb-2 font-mono font-semibold text-report-accent text-sm uppercase tracking-wider">
-              {ctx.t(block.title)}
-            </h2>
-          ) : headingLevel === 3 ? (
-            <h3 className="mb-3 border-report-accent border-b pb-2 font-mono font-semibold text-report-accent text-sm uppercase tracking-wider">
-              {ctx.t(block.title)}
-            </h3>
-          ) : (
-            <h4 className="mb-3 border-report-accent border-b pb-2 font-mono font-semibold text-report-accent text-sm uppercase tracking-wider">
-              {ctx.t(block.title)}
-            </h4>
-          )}
-          {block.lead ? (
-            <p className="lead mb-4 text-lg text-muted-foreground">
-              <RichText ctx={ctx} value={block.lead} />
-            </p>
-          ) : null}
-          <BlockRenderer
-            blocks={block.children}
-            ctx={ctx}
-            staticMermaid={staticMermaid}
-          />
+        <section className={blockRoot("airp-section")} id={id}>
+          <header className="airp-section-header">
+            <TitleTag className="airp-section-title">{title}</TitleTag>
+          </header>
+          <div className="airp-section-body">
+            {block.lead ? (
+              <p className="lead mb-4 text-lg text-muted-foreground">
+                <RichText ctx={ctx} value={block.lead} />
+              </p>
+            ) : null}
+            <BlockRenderer
+              blocks={block.children}
+              ctx={ctx}
+              staticMermaid={staticMermaid}
+            />
+          </div>
         </section>
       );
     }
@@ -280,21 +274,16 @@ function BlockNode({
 
     case "table":
       return (
-        <div className={blockRoot("my-4 overflow-x-auto rounded-lg border border-border")}>
-          <table className="w-full min-w-[640px] border-collapse text-sm">
+        <div className={blockRoot("airp-table-wrap my-4")}>
+          <table className="airp-data-table min-w-[640px]">
             {block.caption ? (
-              <caption className="caption-bottom p-2 text-muted-foreground text-xs">
-                {ctx.t(block.caption)}
-              </caption>
+              <caption>{ctx.t(block.caption)}</caption>
             ) : null}
             <thead>
               <tr>
                 {block.columns.map((col) => (
                   <th
-                    className={cn(
-                      "bg-muted px-3 py-2 text-left font-mono text-[10px] text-muted-foreground uppercase tracking-wide",
-                      col.align === "end" && "text-right"
-                    )}
+                    className={cn(col.align === "end" && "text-right")}
                     key={col.key}
                   >
                     {ctx.t(col.label)}
@@ -304,11 +293,10 @@ function BlockNode({
             </thead>
             <tbody>
               {block.rows.map((row, ri) => (
-                <tr className="border-border border-t hover:bg-muted/50" key={ri}>
+                <tr key={ri}>
                   {block.columns.map((col) => (
                     <td
                       className={cn(
-                        "px-3 py-2 align-top",
                         col.align === "end" && "text-right tabular-nums"
                       )}
                       key={col.key}
@@ -468,13 +456,13 @@ function BlockNode({
 
     case "code":
       return (
-        <div className={blockRoot("my-4 overflow-hidden rounded-lg border border-border bg-muted/40")}>
+        <div className={blockRoot("my-4 overflow-hidden rounded-lg border border-border bg-card")}>
           {block.filename ? (
-            <div className="border-border border-b px-3 py-1.5 font-mono text-muted-foreground text-xs">
+            <div className="border-border border-b bg-muted/50 px-3 py-1.5 font-mono text-muted-foreground text-xs">
               {block.filename}
             </div>
           ) : null}
-          <pre className="overflow-x-auto p-4 font-mono text-xs leading-relaxed">
+          <pre className="overflow-x-auto bg-muted p-4 font-mono text-xs leading-relaxed">
             <code>{block.code}</code>
           </pre>
         </div>
@@ -485,13 +473,13 @@ function BlockNode({
         block.unified ??
         `--- before\n+++ after\n${block.before ?? ""}\n${block.after ?? ""}`;
       return (
-        <div className={blockRoot("my-4 overflow-hidden rounded-lg border border-border")}>
+        <div className={blockRoot("my-4 overflow-hidden rounded-lg border border-border bg-card")}>
           {block.filename ? (
-            <div className="bg-muted px-3 py-1.5 font-mono text-xs">
+            <div className="border-border border-b bg-muted/50 px-3 py-1.5 font-mono text-muted-foreground text-xs">
               {block.filename}
             </div>
           ) : null}
-          <pre className="overflow-x-auto bg-muted/30 p-4 font-mono text-xs leading-relaxed">
+          <pre className="overflow-x-auto bg-muted p-4 font-mono text-xs leading-relaxed">
             <code>{body}</code>
           </pre>
         </div>
@@ -764,23 +752,21 @@ function BlockNode({
 
     case "requirementTrace":
       return (
-        <div className={blockRoot("my-4 overflow-x-auto rounded-lg border border-border")}>
-          <table className="w-full text-sm">
+        <div className={blockRoot("airp-table-wrap my-4")}>
+          <table className="airp-data-table">
             <thead>
-              <tr className="bg-muted text-left font-mono text-[10px] uppercase">
-                <th className="px-3 py-2">ID</th>
-                <th className="px-3 py-2">Summary</th>
-                <th className="px-3 py-2">Status</th>
+              <tr>
+                <th>ID</th>
+                <th>Summary</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {block.items.map((item, i) => (
-                <tr className="border-border border-t" key={i}>
-                  <td className="px-3 py-2 font-mono">{item.reqId}</td>
-                  <td className="px-3 py-2">
-                    {item.summary ? ctx.t(item.summary) : "—"}
-                  </td>
-                  <td className="px-3 py-2">
+                <tr key={i}>
+                  <td className="font-mono">{item.reqId}</td>
+                  <td>{item.summary ? ctx.t(item.summary) : "—"}</td>
+                  <td>
                     <StatusBadge status={item.status} />
                   </td>
                 </tr>
@@ -810,21 +796,21 @@ function BlockNode({
 
     case "apiInventory":
       return (
-        <div className={blockRoot("my-4 overflow-x-auto rounded-lg border border-border")}>
-          <table className="w-full font-mono text-xs">
+        <div className={blockRoot("airp-table-wrap my-4")}>
+          <table className="airp-data-table airp-data-table--mono">
             <thead>
-              <tr className="bg-muted text-left text-[10px] uppercase">
-                <th className="px-3 py-2">Method</th>
-                <th className="px-3 py-2">Path</th>
-                <th className="px-3 py-2">Summary</th>
+              <tr>
+                <th>Method</th>
+                <th>Path</th>
+                <th>Summary</th>
               </tr>
             </thead>
             <tbody>
               {block.endpoints.map((ep, i) => (
-                <tr className="border-border border-t" key={i}>
-                  <td className="px-3 py-2">{ep.method}</td>
-                  <td className="px-3 py-2">{ep.path}</td>
-                  <td className="px-3 py-2 font-sans">
+                <tr key={i}>
+                  <td>{ep.method}</td>
+                  <td>{ep.path}</td>
+                  <td className="font-sans">
                     {ep.summary ? ctx.t(ep.summary) : "—"}
                   </td>
                 </tr>
@@ -854,9 +840,9 @@ function BlockNode({
 
     case "glossary":
       return (
-        <dl className={blockRoot("my-4 divide-y divide-border rounded-lg border border-border")}>
+        <dl className={blockRoot("airp-glossary")}>
           {block.terms.map((t, i) => (
-            <div className="grid gap-2 p-3 sm:grid-cols-[140px_1fr]" key={i}>
+            <div className="airp-glossary-row" key={i}>
               <dt className="font-semibold text-sm">{ctx.t(t.term)}</dt>
               <dd className="text-muted-foreground text-sm">
                 <RichText ctx={ctx} value={t.definition} />
@@ -930,28 +916,18 @@ function BlockNode({
 
     case "tabs":
       return (
-        <Tabs.Root className={blockRoot("my-4")} defaultValue="0">
-          <Tabs.List className="flex flex-wrap gap-1 border-border border-b pb-2">
-            {block.panels.map((panel, i) => (
-              <Tabs.Trigger
-                className="rounded-md px-3 py-1.5 text-sm data-[state=active]:bg-muted data-[state=active]:font-medium"
-                key={i}
-                value={String(i)}
-              >
-                {ctx.t(panel.label)}
-              </Tabs.Trigger>
-            ))}
-          </Tabs.List>
-          {block.panels.map((panel, i) => (
-            <Tabs.Content className="pt-4" key={i} value={String(i)}>
-              <BlockRenderer
-                blocks={panel.children}
-                ctx={ctx}
-                staticMermaid={staticMermaid}
-              />
-            </Tabs.Content>
-          ))}
-        </Tabs.Root>
+        <AirpTabs
+          className={blockRoot("my-4")}
+          ctx={ctx}
+          panels={block.panels}
+          renderPanel={(children) => (
+            <BlockRenderer
+              blocks={children}
+              ctx={ctx}
+              staticMermaid={staticMermaid}
+            />
+          )}
+        />
       );
 
     case "appendix":

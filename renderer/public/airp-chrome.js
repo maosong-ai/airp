@@ -129,6 +129,18 @@
     }
   }
 
+  function updateLocaleTriggerTitle(locale) {
+    const localeTrigger = document.querySelector("[data-airp-locale-trigger]");
+    if (!(localeTrigger instanceof HTMLElement)) return;
+    const label = document.querySelector(
+      `[data-airp-locale-option="${locale}"] [data-airp-locale-label]`
+    );
+    const text = label?.textContent?.trim();
+    if (text) {
+      localeTrigger.setAttribute("title", text);
+    }
+  }
+
   function syncActiveUi(state) {
     const { preset, colorMode, locale } = state;
 
@@ -180,6 +192,7 @@
     root.lang = locale;
     document.title = getTitle(locale);
     updateChromeUi(uiLocale);
+    updateLocaleTriggerTitle(locale);
     const visible = document.querySelector(
       `[data-airp-locale="${locale}"]:not([hidden])`
     );
@@ -188,16 +201,38 @@
     }
   }
 
+  const HOVER_POPOVER_OPEN_DELAY_MS = 0;
+  const HOVER_POPOVER_CLOSE_DELAY_MS = 200;
+  const hoverPopoverTimers = new WeakMap();
+
+  function clearHoverPopoverTimers(rootEl) {
+    const timers = hoverPopoverTimers.get(rootEl);
+    if (!timers) return;
+    if (timers.open) {
+      clearTimeout(timers.open);
+      timers.open = null;
+    }
+    if (timers.close) {
+      clearTimeout(timers.close);
+      timers.close = null;
+    }
+  }
+
+  function closePopoverRoot(rootEl) {
+    if (rootEl instanceof HTMLElement) {
+      clearHoverPopoverTimers(rootEl);
+      togglePopover(rootEl, false);
+    }
+  }
+
+  function closeLocalePopover() {
+    const trigger = document.querySelector("[data-airp-locale-trigger]");
+    closePopoverRoot(trigger?.closest("[data-airp-popover-root]"));
+  }
+
   function closeAllPopovers() {
     for (const r of popoverRoots()) {
-      const trigger = r.querySelector("[data-airp-popover-trigger]");
-      const panel = r.querySelector("[data-airp-popover-panel]");
-      if (trigger) trigger.setAttribute("aria-expanded", "false");
-      if (panel) {
-        panel.hidden = true;
-        panel.setAttribute("aria-hidden", "true");
-        panel.setAttribute("data-airp-open", "false");
-      }
+      closePopoverRoot(r);
     }
   }
 
@@ -307,22 +342,26 @@
     }
     syncActiveUi({ locale: activeLocale, preset, colorMode });
 
-    // Wire locale buttons
-    for (const btn of document.querySelectorAll("[data-airp-locale-option]")) {
-      btn.addEventListener("click", () => {
-        const v = btn.getAttribute("data-airp-locale-option");
-        if (!v) return;
-        const next = resolveAllModeLocales(v);
-        activeLocale = next.contentLocale;
-        activeUiLocale = next.uiLocale;
-        applyLocale(activeLocale, activeUiLocale);
-        if (next.shouldPersistUiLocale) {
-          writeStorage(config.storageKeys.uiLocale, activeUiLocale);
-        }
-        syncActiveUi({ locale: activeLocale, preset, colorMode });
-        closeAllPopovers();
-      });
-    }
+    document.addEventListener("click", (e) => {
+      const option = e.target.closest("[data-airp-locale-option]");
+      if (!(option instanceof HTMLElement)) return;
+
+      const v = option.getAttribute("data-airp-locale-option");
+      if (!v) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      closeLocalePopover();
+
+      const next = resolveAllModeLocales(v);
+      activeLocale = next.contentLocale;
+      activeUiLocale = next.uiLocale;
+      applyLocale(activeLocale, activeUiLocale);
+      if (next.shouldPersistUiLocale) {
+        writeStorage(config.storageKeys.uiLocale, activeUiLocale);
+      }
+      syncActiveUi({ locale: activeLocale, preset, colorMode });
+    });
   } else {
     // single mode: locale is fixed and language storage is ignored.
     activeLocale = config.exportLocale;
@@ -331,18 +370,67 @@
     syncActiveUi({ locale: activeLocale, preset, colorMode });
   }
 
+  function wireHoverPopover(rootEl) {
+    if (!(rootEl instanceof HTMLElement)) return;
+
+    const trigger = rootEl.querySelector("[data-airp-popover-trigger]");
+    const panel = rootEl.querySelector("[data-airp-popover-panel]");
+    const hoverTargets = [trigger, panel].filter(
+      (el) => el instanceof HTMLElement
+    );
+    if (!hoverTargets.length) return;
+
+    const timers = { open: null, close: null };
+    hoverPopoverTimers.set(rootEl, timers);
+
+    function isMovingWithinPopover(related) {
+      if (!(related instanceof Node)) return false;
+      return hoverTargets.some(
+        (el) => el === related || el.contains(related)
+      );
+    }
+
+    function scheduleOpen() {
+      if (timers.close) {
+        clearTimeout(timers.close);
+        timers.close = null;
+      }
+      if (timers.open) return;
+      timers.open = setTimeout(() => {
+        timers.open = null;
+        togglePopover(rootEl, true);
+      }, HOVER_POPOVER_OPEN_DELAY_MS);
+    }
+
+    function scheduleClose() {
+      if (timers.open) {
+        clearTimeout(timers.open);
+        timers.open = null;
+      }
+      if (timers.close) return;
+      timers.close = setTimeout(() => {
+        timers.close = null;
+        togglePopover(rootEl, false);
+      }, HOVER_POPOVER_CLOSE_DELAY_MS);
+    }
+
+    for (const el of hoverTargets) {
+      el.addEventListener("pointerenter", scheduleOpen);
+      el.addEventListener("pointerleave", (e) => {
+        if (isMovingWithinPopover(e.relatedTarget)) return;
+        scheduleClose();
+      });
+    }
+  }
+
   applyThemePreset(preset);
   applyColorMode(colorMode);
 
-  // Popovers: click to toggle; close on outside click and Escape.
+  // Popovers: hover open/close — matches dashboard ToolbarHoverMenu.
   for (const r of popoverRoots()) {
-    const trigger = r.querySelector("[data-airp-popover-trigger]");
-    if (!trigger) continue;
-    trigger.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      togglePopover(r);
-    });
+    if (r.hasAttribute("data-airp-popover-hover")) {
+      wireHoverPopover(r);
+    }
   }
   document.addEventListener("click", (e) => {
     const t = e.target;
@@ -373,6 +461,30 @@
     }
   });
 
+  document.addEventListener("click", (e) => {
+    const t = e.target;
+    if (!(t instanceof Element)) return;
+    const trigger = t.closest("[data-airp-tab]");
+    if (!(trigger instanceof HTMLElement)) return;
+
+    const tabs = trigger.closest("[data-airp-tabs]");
+    if (!(tabs instanceof HTMLElement)) return;
+
+    const tabId = trigger.getAttribute("data-airp-tab");
+    if (tabId == null) return;
+
+    for (const btn of tabs.querySelectorAll("[data-airp-tab]")) {
+      if (!(btn instanceof HTMLElement)) continue;
+      const isActive = btn.getAttribute("data-airp-tab") === tabId;
+      btn.classList.toggle("is-active", isActive);
+      btn.setAttribute("aria-selected", String(isActive));
+    }
+    for (const panel of tabs.querySelectorAll("[data-airp-tab-panel]")) {
+      if (!(panel instanceof HTMLElement)) continue;
+      panel.hidden = panel.getAttribute("data-airp-tab-panel") !== tabId;
+    }
+  });
+
   // Wire preset buttons
   for (const btn of document.querySelectorAll("[data-airp-preset]")) {
     btn.addEventListener("click", () => {
@@ -383,7 +495,6 @@
       preset = v;
       syncActiveUi({ locale: activeLocale, preset, colorMode });
       updateChromeUi(activeUiLocale);
-      closeAllPopovers();
     });
   }
 
@@ -400,7 +511,7 @@
         const visible = document.querySelector("[data-airp-locale]:not([hidden])");
         if (visible) window.__airpRefreshDiagrams(visible);
       }
-      closeAllPopovers();
+      updateChromeUi(activeUiLocale);
     });
   }
 

@@ -431,6 +431,81 @@
   @apply hidden items-center justify-center text-2xl text-report-accent md:flex;
 }
 
+.airp-table-wrap {
+  @apply overflow-x-auto rounded-lg border border-border bg-card;
+}
+.airp-data-table {
+  @apply w-full border-collapse text-sm;
+}
+.airp-data-table caption {
+  @apply caption-bottom p-2 text-muted-foreground text-xs;
+}
+.airp-data-table thead th {
+  @apply bg-muted px-3 py-2 text-left font-mono text-[10px] text-muted-foreground uppercase tracking-wide;
+}
+.airp-data-table tbody tr {
+  @apply border-border border-t transition-colors;
+}
+.airp-data-table tbody tr:nth-child(even) {
+  @apply bg-muted/30;
+}
+.airp-data-table tbody tr:hover {
+  @apply bg-muted/60;
+}
+.airp-data-table tbody td {
+  @apply px-3 py-2 align-top;
+}
+.airp-data-table--mono {
+  @apply font-mono text-xs;
+}
+
+.airp-glossary {
+  @apply my-4 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card;
+}
+.airp-glossary-row {
+  @apply grid gap-2 p-3 transition-colors sm:grid-cols-[140px_1fr];
+}
+.airp-glossary-row:nth-child(even) {
+  @apply bg-muted/30;
+}
+.airp-glossary-row:hover {
+  @apply bg-muted/60;
+}
+
+.airp-section {
+  @apply mb-10 scroll-mt-24 overflow-hidden rounded-lg border border-border bg-card;
+}
+.airp-section-header {
+  @apply border-report-accent border-b-2 bg-muted/50 px-4 py-3;
+}
+.airp-section-title {
+  @apply font-mono font-semibold text-report-accent text-sm uppercase tracking-wider;
+}
+.airp-section-body {
+  @apply p-4;
+}
+
+.airp-tabs {
+  @apply overflow-hidden rounded-lg border border-border bg-card;
+}
+.airp-tabs-list {
+  @apply flex flex-wrap gap-0.5 border-border border-b bg-muted/40 px-2 pt-2;
+}
+.airp-tabs-trigger {
+  @apply relative -mb-px rounded-t-md border border-transparent px-4 py-2 text-muted-foreground text-sm transition-colors;
+  @apply hover:bg-muted/50 hover:text-foreground;
+}
+.airp-tabs-trigger.is-active,
+.airp-tabs-trigger[aria-selected="true"] {
+  @apply border-border border-b-transparent bg-card font-medium text-foreground;
+}
+.airp-tabs-panel {
+  @apply p-4;
+}
+.airp-tabs-panel[hidden] {
+  display: none;
+}
+
 /* Interactive file tree block */
 .airp-file-tree {
   @apply relative overflow-hidden;
@@ -531,4 +606,7 @@
 }
 [data-airp-popover-root][data-airp-popover-align="start"] [data-airp-popover-panel] {
   left: 0;
+}
+[data-airp-popover-panel][hidden] {
+  display: none !important;
 }

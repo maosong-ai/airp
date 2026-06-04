@@ -4,6 +4,7 @@ import {
 import { ChromeLocalePanel } from "@/components/chrome/chrome-locale-panel";
 import { IconLanguages } from "@/components/chrome/chrome-icons";
 import { localeDisplayName, tRenderer } from "@/lib/renderer-i18n";
+import { useState } from "react";
 
 export interface LocaleMenuProps {
   uiLocale: string;
@@ -14,7 +15,7 @@ export interface LocaleMenuProps {
 }
 
 export function LocaleMenu({ uiLocale, value, locales, onChange }: LocaleMenuProps) {
-  const options = locales;
+  const [open, setOpen] = useState(false);
 
   return (
     <ToolbarHoverMenu
@@ -22,12 +23,17 @@ export function LocaleMenu({ uiLocale, value, locales, onChange }: LocaleMenuPro
       ariaLabel={tRenderer(uiLocale, "localeMenu")}
       contentClassName="min-w-[200px]"
       icon={<IconLanguages />}
+      onOpenChange={setOpen}
+      open={open}
       title={localeDisplayName(value)}
     >
       <ChromeLocalePanel
         activeLocale={value}
-        locales={options}
-        onLocaleChange={onChange}
+        locales={locales}
+        onLocaleChange={(loc) => {
+          onChange(loc);
+          setOpen(false);
+        }}
         uiLocale={uiLocale}
       />
     </ToolbarHoverMenu>
