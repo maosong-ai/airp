@@ -54,6 +54,25 @@ npx skills add maosong-ai/airp
 | `/airp-html` | `*.html`（単一ファイル） | 既存の `*.airp.json` を共有・閲覧用の単一 HTML にレンダリング |
 | `/airp-dashboard` | ローカル Dashboard（ブラウザ） | `.airp.json` のアップロード/閲覧/レンダリング（インタラクティブ表示） |
 
+## Workspace コマンド
+
+リポジトリのルートで実行します：
+
+```bash
+pnpm install
+pnpm run test:unit
+pnpm run test:integration
+pnpm run test
+pnpm run build
+pnpm run build:skills
+```
+
+補足：
+
+- `test:unit` は `renderer` パッケージで実行されます。
+- `test:integration` は `tests` パッケージで実行され、compile-first の CLI 生成物検証を含みます。
+- `build:skills` は renderer のアセットをビルドし、`skills/*/scripts/*.mjs` の配布用 CLI を生成します。
+
 ## コア原則：Schema は単一の真実の源（SSOT）
 
 AIRP の **JSON Schema** は生成と検証の唯一の真実の源です：`./airp-document.schema.json`

@@ -431,6 +431,106 @@
   @apply hidden items-center justify-center text-2xl text-report-accent md:flex;
 }
 
+/* Interactive file tree block */
+.airp-file-tree {
+  @apply relative overflow-hidden;
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--card) 82%, var(--report-accent-dim)) 0%,
+    var(--card) 58%
+  );
+}
+.airp-file-tree::before {
+  content: "";
+  @apply pointer-events-none absolute inset-0;
+  background-image: radial-gradient(
+    circle at 100% 0%,
+    color-mix(in oklch, var(--report-accent) 10%, transparent),
+    transparent 42%
+  );
+}
+.airp-file-tree-toolbar {
+  @apply relative mb-3 flex items-center justify-between gap-3 border-border/80 border-b pb-2;
+}
+.airp-file-tree-toolbar-title-wrap {
+  @apply inline-flex items-center gap-1.5;
+}
+.airp-file-tree-toolbar-icon {
+  @apply size-3.5 text-report-accent;
+}
+.airp-file-tree-toolbar-title {
+  @apply font-semibold text-[11px] tracking-wide uppercase text-muted-foreground;
+}
+.airp-file-tree-toolbar-actions {
+  @apply flex items-center gap-1;
+}
+.airp-file-tree-toolbar-button {
+  @apply inline-flex items-center gap-1 rounded-md border border-border/80 bg-muted/40 px-2.5 py-1 font-medium text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground;
+}
+.airp-file-tree-toolbar-button-icon {
+  @apply size-3;
+}
+.airp-file-tree-body {
+  @apply relative space-y-0.5;
+}
+.airp-file-tree-node {
+  @apply my-0;
+}
+.airp-file-tree-row {
+  @apply flex list-none items-center gap-1.5 rounded-md py-1.5 pr-2 leading-relaxed transition-colors hover:bg-muted/35;
+}
+.airp-file-tree-row::-webkit-details-marker {
+  display: none;
+}
+.airp-file-tree-row--leaf {
+  @apply ml-0;
+}
+.airp-file-tree-caret {
+  @apply inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-[10px] text-muted-foreground;
+}
+.airp-file-tree-caret-icon {
+  @apply size-3.5 transition-transform duration-150;
+}
+.airp-file-tree-caret--placeholder {
+  @apply opacity-0;
+}
+.airp-file-tree-node[open] > .airp-file-tree-row .airp-file-tree-caret-icon {
+  transform: rotate(90deg);
+}
+.airp-file-tree-node-icon {
+  @apply inline-flex size-4 shrink-0 items-center justify-center text-report-accent;
+}
+.airp-file-tree-node-icon > svg {
+  @apply size-3.5;
+}
+.airp-file-tree-folder-open {
+  display: none;
+}
+.airp-file-tree-node[open] > .airp-file-tree-row .airp-file-tree-folder-open {
+  display: block;
+}
+.airp-file-tree-node[open] > .airp-file-tree-row .airp-file-tree-folder-closed {
+  display: none;
+}
+.airp-file-tree-node-icon--file {
+  @apply text-muted-foreground;
+}
+.airp-file-tree-kind {
+  @apply rounded border border-border/80 bg-muted/70 px-1.5 py-0.5 font-semibold text-[9px] tracking-wide text-muted-foreground uppercase;
+}
+.airp-file-tree-kind--file {
+  @apply bg-transparent text-muted-foreground/90;
+}
+.airp-file-tree-name {
+  @apply break-all text-foreground;
+}
+.airp-file-tree-annotation {
+  @apply text-muted-foreground;
+}
+.airp-file-tree-children {
+  @apply ml-2 border-border/65 border-l pl-2;
+}
+
 /* Static export popover alignment (no Radix positioning) */
 [data-airp-popover-root][data-airp-popover-align="end"] [data-airp-popover-panel] {
   right: 0;

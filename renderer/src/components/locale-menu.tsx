@@ -3,22 +3,18 @@ import {
 } from "@/components/toolbar-hover-menu";
 import { ChromeLocalePanel } from "@/components/chrome/chrome-locale-panel";
 import { IconLanguages } from "@/components/chrome/chrome-icons";
-import { rendererConfig } from "@/config/renderer-config";
-import type { AirpDocument } from "@/lib/airp-schema";
 import { localeDisplayName, tRenderer } from "@/lib/renderer-i18n";
 
 export interface LocaleMenuProps {
   uiLocale: string;
-  /** Active document content locale (or renderer locale when no doc). */
+  /** Active document content locale. */
   value: string;
-  doc: AirpDocument | null;
+  locales: readonly string[];
   onChange: (locale: string) => void;
 }
 
-export function LocaleMenu({ uiLocale, value, doc, onChange }: LocaleMenuProps) {
-  const options = doc
-    ? doc.i18n.locales
-    : [...rendererConfig.locales];
+export function LocaleMenu({ uiLocale, value, locales, onChange }: LocaleMenuProps) {
+  const options = locales;
 
   return (
     <ToolbarHoverMenu

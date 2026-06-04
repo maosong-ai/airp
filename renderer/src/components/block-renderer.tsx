@@ -6,11 +6,21 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Block } from "@/lib/airp-schema";
 import { slugify, type I18nContext } from "@/lib/i18n";
+import { tRenderer } from "@/lib/renderer-i18n";
 import { cn } from "@/lib/utils";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import * as Tabs from "@radix-ui/react-tabs";
 import type { ClassValue } from "clsx";
-import { ChevronDown } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  File,
+  Folder,
+  FolderOpen,
+  FolderTree,
+  Minus,
+  Plus,
+} from "lucide-react";
 
 const blockRoot = (...classes: ClassValue[]) =>
   cn("w-full max-w-none", ...classes);
@@ -490,8 +500,53 @@ function BlockNode({
 
     case "fileTree":
       return (
-        <div className={blockRoot("my-4 rounded-lg border border-border bg-card p-4 font-mono text-xs leading-loose")}>
-          <FileTreeNode ctx={ctx} node={block.root} depth={0} />
+        <div
+          className={blockRoot(
+            "airp-file-tree my-4 rounded-xl border border-border bg-card p-4 font-mono text-xs"
+          )}
+          data-airp-file-tree
+        >
+          <div className="airp-file-tree-toolbar">
+            <div className="airp-file-tree-toolbar-title-wrap">
+              <FolderTree aria-hidden className="airp-file-tree-toolbar-icon" />
+              <span className="airp-file-tree-toolbar-title">
+                {ctx.ui("fileTreeToolbarTitle", tRenderer(ctx.locale, "fileTreeToolbarTitle"))}
+              </span>
+            </div>
+            <div className="airp-file-tree-toolbar-actions">
+              <button
+                className="airp-file-tree-toolbar-button"
+                data-airp-file-tree-action="expand-all"
+                onClick={(event) => {
+                  const container = event.currentTarget.closest("[data-airp-file-tree]");
+                  if (container instanceof HTMLElement) {
+                    setAllFileTreeNodesOpen(container, true);
+                  }
+                }}
+                type="button"
+              >
+                <Plus aria-hidden className="airp-file-tree-toolbar-button-icon" />
+                {ctx.ui("fileTreeExpandAll", tRenderer(ctx.locale, "fileTreeExpandAll"))}
+              </button>
+              <button
+                className="airp-file-tree-toolbar-button"
+                data-airp-file-tree-action="collapse-all"
+                onClick={(event) => {
+                  const container = event.currentTarget.closest("[data-airp-file-tree]");
+                  if (container instanceof HTMLElement) {
+                    setAllFileTreeNodesOpen(container, false);
+                  }
+                }}
+                type="button"
+              >
+                <Minus aria-hidden className="airp-file-tree-toolbar-button-icon" />
+                {ctx.ui("fileTreeCollapseAll", tRenderer(ctx.locale, "fileTreeCollapseAll"))}
+              </button>
+            </div>
+          </div>
+          <div className="airp-file-tree-body">
+            <FileTreeNode ctx={ctx} node={block.root} depth={0} />
+          </div>
         </div>
       );
 
@@ -946,6 +1001,16 @@ type FileTreeNodeData = {
   children?: FileTreeNodeData[];
 };
 
+function setAllFileTreeNodesOpen(container: HTMLElement, open: boolean) {
+  const nodes = container.querySelectorAll("[data-airp-file-tree-node]");
+  nodes.forEach((node) => {
+    if (!(node instanceof HTMLDetailsElement)) {
+      return;
+    }
+    node.open = open;
+  });
+}
+
 function FileTreeNode({
   node,
   depth,
@@ -955,29 +1020,72 @@ function FileTreeNode({
   depth: number;
   ctx: I18nContext;
 }) {
-  const pad = depth * 16;
-  return (
-    <>
-      <div style={{ paddingLeft: pad }}>
-        {node.change ? <ChangeBadge change={node.change} /> : null}{" "}
-        <span
-          className={cn(
-            node.change === "deleted" && "line-through opacity-60",
-            node.change === "added" && "font-bold text-report-green"
-          )}
-        >
-          {node.name}
-        </span>
-        {node.annotation ? (
-          <span className="text-muted-foreground">
-            {" "}
-            <em>({ctx.t(node.annotation)})</em>
+  const pad = depth * 14;
+  const hasChildren = Boolean(node.children?.length);
+
+  if (hasChildren) {
+    return (
+      <details className="airp-file-tree-node" data-airp-file-tree-node open={depth <= 1}>
+        <summary className="airp-file-tree-row" style={{ paddingLeft: pad }}>
+          <span aria-hidden className="airp-file-tree-caret">
+            <ChevronRight className="airp-file-tree-caret-icon" />
           </span>
-        ) : null}
-      </div>
-      {node.children?.map((child, i) => (
-        <FileTreeNode ctx={ctx} depth={depth + 1} key={i} node={child} />
-      ))}
-    </>
+          <span aria-hidden className="airp-file-tree-node-icon">
+            <Folder className="airp-file-tree-folder-closed" />
+            <FolderOpen className="airp-file-tree-folder-open" />
+          </span>
+          <span className="airp-file-tree-kind">
+            {ctx.ui("fileTreeDirLabel", tRenderer(ctx.locale, "fileTreeDirLabel"))}
+          </span>
+          {node.change ? <ChangeBadge change={node.change} /> : null}
+          <span
+            className={cn(
+              "airp-file-tree-name",
+              node.change === "deleted" && "line-through opacity-60",
+              node.change === "added" && "font-bold text-report-green"
+            )}
+          >
+            {node.name}
+          </span>
+          {node.annotation ? (
+            <span className="airp-file-tree-annotation">
+              <em>({ctx.t(node.annotation)})</em>
+            </span>
+          ) : null}
+        </summary>
+        <div className="airp-file-tree-children">
+          {node.children?.map((child, i) => (
+            <FileTreeNode ctx={ctx} depth={depth + 1} key={i} node={child} />
+          ))}
+        </div>
+      </details>
+    );
+  }
+
+  return (
+    <div className="airp-file-tree-row airp-file-tree-row--leaf" style={{ paddingLeft: pad }}>
+      <span aria-hidden className="airp-file-tree-caret airp-file-tree-caret--placeholder" />
+      <span aria-hidden className="airp-file-tree-node-icon airp-file-tree-node-icon--file">
+        <File className="airp-file-tree-file" />
+      </span>
+      <span className="airp-file-tree-kind airp-file-tree-kind--file">
+        {ctx.ui("fileTreeFileLabel", tRenderer(ctx.locale, "fileTreeFileLabel"))}
+      </span>
+      {node.change ? <ChangeBadge change={node.change} /> : null}
+      <span
+        className={cn(
+          "airp-file-tree-name",
+          node.change === "deleted" && "line-through opacity-60",
+          node.change === "added" && "font-bold text-report-green"
+        )}
+      >
+        {node.name}
+      </span>
+      {node.annotation ? (
+        <span className="airp-file-tree-annotation">
+          <em>({ctx.t(node.annotation)})</em>
+        </span>
+      ) : null}
+    </div>
   );
 }

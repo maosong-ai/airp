@@ -1,5 +1,4 @@
 import { rendererConfig, type ThemeMode } from "@/config/renderer-config";
-import type { AirpDocument } from "@/lib/airp-schema";
 import type { ThemePreset } from "@/lib/themes";
 import { detectSystemLocale } from "@/lib/i18n";
 import { matchLocaleInList } from "@/lib/locale-match";
@@ -35,16 +34,11 @@ export function readStoredUiLocale(): string | null {
 }
 
 export function writeStoredUiLocale(locale: string): void {
-  writeStorage(rendererConfig.storageKeys.uiLocale, locale);
-}
-
-export function readStoredContentLocale(): string | null {
-  const raw = readStorage(rendererConfig.storageKeys.contentLocale);
-  return raw ? raw : null;
-}
-
-export function writeStoredContentLocale(locale: string): void {
-  writeStorage(rendererConfig.storageKeys.contentLocale, locale);
+  const matched = matchLocaleInList(locale, rendererConfig.locales);
+  if (!matched) {
+    return;
+  }
+  writeStorage(rendererConfig.storageKeys.uiLocale, matched);
 }
 
 export function readStoredTheme(): ThemePreset | null {
@@ -87,30 +81,6 @@ export function resolveUiLocale(): string {
   return rendererConfig.defaultLocale;
 }
 
-/** Document content locale: prefer stored, then match to doc locales. */
-export function resolveContentLocale(
-  doc: AirpDocument | null,
-  uiLocale: string
-): string {
-  if (!doc) {
-    return uiLocale;
-  }
-  const stored = readStoredContentLocale();
-  if (stored && doc.i18n.locales.includes(stored)) {
-    return stored;
-  }
-  // Try to match ui locale to doc locales
-  const fromUi = matchLocaleInList(uiLocale, doc.i18n.locales);
-  if (fromUi) {
-    return fromUi;
-  }
-  const fromSystem = matchLocaleInList(detectSystemLocale(), doc.i18n.locales);
-  if (fromSystem) {
-    return fromSystem;
-  }
-  return doc.i18n.defaultLocale;
-}
-
 export function resolveInitialTheme(): ThemePreset {
   return readStoredTheme() ?? rendererConfig.defaultTheme;
 }
@@ -125,12 +95,4 @@ export function resolveThemePreset(override?: ThemePreset | null): ThemePreset {
 
 export function resolveInitialThemeMode(): ThemeMode {
   return readStoredThemeMode() ?? rendererConfig.defaultThemeMode;
-}
-
-/** Best renderer UI locale for toolbar strings given active document locale. */
-export function resolveRendererUiLocale(docLocale: string): string {
-  return (
-    matchLocaleInList(docLocale, rendererConfig.locales) ??
-    resolveUiLocale()
-  );
 }

@@ -54,6 +54,25 @@ Commands:
 | `/airp-html` | `*.html` (single file) | Render existing `*.airp.json` to a shareable, readable single-file HTML |
 | `/airp-dashboard` | Local Dashboard (browser) | Upload/browse/render `.airp.json` for interactive viewing |
 
+## Workspace commands
+
+From repository root:
+
+```bash
+pnpm install
+pnpm run test:unit
+pnpm run test:integration
+pnpm run test
+pnpm run build
+pnpm run build:skills
+```
+
+Notes:
+
+- Unit tests run in `renderer`.
+- Integration tests run in `tests` and include compile-first CLI artifact verification.
+- `build:skills` builds renderer assets and packaged CLI outputs under `skills/*/scripts/*.mjs`.
+
 ## Core principle: Schema is the single source of truth (SSOT)
 
 AIRP’s **JSON Schema** is the sole source for generation and validation: `./airp-document.schema.json`

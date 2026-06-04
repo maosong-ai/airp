@@ -4,10 +4,10 @@ import { StaticChromeMarkup } from "@/components/static-chrome-markup";
 import type { ThemeMode } from "@/config/renderer-config";
 import type { AirpDocument } from "@/lib/airp-schema";
 import { escapeInlineScript } from "@/lib/inline-script";
+import { resolveThemePreset } from "@/lib/preferences";
 import {
-  resolveRendererUiLocale,
-  resolveThemePreset,
-} from "@/lib/preferences";
+  resolveRendererUiLocaleForSsr,
+} from "@/lib/locale-resolution";
 import { buildStaticChromeI18n } from "@/lib/renderer-i18n";
 import { rendererConfig } from "@/config/renderer-config";
 import { THEME_PRESETS, type ThemePreset } from "@/lib/themes";
@@ -35,13 +35,23 @@ export function renderStaticHtml({
 }: StaticHtmlOptions): string {
 
   const preset = resolveThemePreset(themePreset);
-  const uiLocale = resolveRendererUiLocale(locale);
+  const ssrLocale = localeMode === "all" ? doc.i18n.defaultLocale : locale;
+  const uiLocale = resolveRendererUiLocaleForSsr(
+    ssrLocale,
+    rendererConfig.locales,
+    rendererConfig.defaultLocale
+  );
   const locales = doc.i18n.locales;
+  const titleByLocale = Object.fromEntries(
+    locales.map((loc) => [loc, getTitle(doc, loc)])
+  );
 
   const chromeConfig = {
     storageKeys: rendererConfig.storageKeys,
     locales,
-    exportLocale: locale,
+    exportLocale: ssrLocale,
+    documentDefaultLocale: doc.i18n.defaultLocale,
+    titleByLocale,
     localeMode,
     themePresets: [...THEME_PRESETS],
     exportTheme: preset,
@@ -55,7 +65,7 @@ export function renderStaticHtml({
   const localePanels = localeMode === "all"
     ? locales
         .map((loc) => {
-          const hidden = loc !== locale;
+          const hidden = loc !== doc.i18n.defaultLocale;
           const markup = renderToStaticMarkup(
             <ReportPage doc={doc} locale={loc} showToc staticMermaid />
           );
@@ -63,13 +73,13 @@ export function renderStaticHtml({
         })
         .join("\n")
     : renderToStaticMarkup(
-        <ReportPage doc={doc} locale={locale} showToc staticMermaid />
+        <ReportPage doc={doc} locale={ssrLocale} showToc staticMermaid />
       );
 
   // Chrome shell always rendered; locale switcher visibility controlled by localeMode
   const chromeMarkup = renderToStaticMarkup(
     <StaticChromeMarkup
-      activeLocale={locale}
+      activeLocale={ssrLocale}
       colorMode={colorMode}
       doc={doc}
       localeMode={localeMode}
@@ -90,11 +100,11 @@ export function renderStaticHtml({
   const scripts = `${chromeScript}${mermaidScript}`;
 
   return `<!DOCTYPE html>
-<html lang="${locale}" data-preset="${preset}"${darkClass}>
+<html lang="${ssrLocale}" data-preset="${preset}"${darkClass}>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${escapeHtml(getTitle(doc, locale))}</title>
+  <title>${escapeHtml(getTitle(doc, ssrLocale))}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />

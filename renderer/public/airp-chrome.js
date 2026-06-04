@@ -52,11 +52,17 @@
     );
   }
 
-  function resolveUiLocale(docLocale) {
-    return (
-      matchLocaleInList(docLocale, config.rendererLocales) ??
-      config.defaultRendererLocale
-    );
+  function resolveUiFromRendererChain(storedUiLocale, browserLangs) {
+    const candidates = [storedUiLocale, ...browserLangs, config.defaultRendererLocale]
+      .filter(Boolean);
+
+    for (const candidate of candidates) {
+      const matched = matchLocaleInList(candidate, config.rendererLocales);
+      if (matched) {
+        return matched;
+      }
+    }
+    return config.defaultRendererLocale;
   }
 
   function chromeTable(uiLocale) {
@@ -72,8 +78,8 @@
     }
   }
 
-  function updateChromeUi(docLocale) {
-    const table = chromeTable(resolveUiLocale(docLocale));
+  function updateChromeUi(uiLocale) {
+    const table = chromeTable(uiLocale);
     if (!table) return;
 
     setText(document.querySelector("#airp-chrome [data-airp-i18n='app-title']"), table.appTitle);
@@ -158,24 +164,22 @@
   }
 
   function getTitle(locale) {
-    // Infer title from document meta if available
-    // This is typically set by the application, but we may need to compute it here
-    const docTitle = document.title;
-    // For now, keep the title as is (set by SSR)
-    // In a future iteration, you could pass docMeta in config if needed
-    return docTitle;
+    return (
+      config.titleByLocale?.[locale] ??
+      config.titleByLocale?.[config.documentDefaultLocale] ??
+      document.title
+    );
   }
 
-  function applyLocale(locale) {
+  function applyLocale(locale, uiLocale) {
     for (const panel of panels()) {
       const on = panel.getAttribute("data-airp-locale") === locale;
       panel.hidden = !on;
     }
-    // Update html lang and title based on contentLocale
+    // Keep html language and title synchronized with active content locale.
     root.lang = locale;
-    // Note: Title update would require doc meta in config; 
-    // for now SSR sets it correctly and this applies dynamically
-    updateChromeUi(locale);
+    document.title = getTitle(locale);
+    updateChromeUi(uiLocale);
     const visible = document.querySelector(
       `[data-airp-locale="${locale}"]:not([hidden])`
     );
@@ -197,6 +201,14 @@
     }
   }
 
+  function setAllFileTreeNodesOpen(container, open) {
+    const nodes = container.querySelectorAll("[data-airp-file-tree-node]");
+    for (const node of nodes) {
+      if (!(node instanceof HTMLDetailsElement)) continue;
+      node.open = open;
+    }
+  }
+
   function togglePopover(rootEl, nextOpen) {
     const trigger = rootEl.querySelector("[data-airp-popover-trigger]");
     const panel = rootEl.querySelector("[data-airp-popover-panel]");
@@ -213,24 +225,53 @@
     panel.setAttribute("data-airp-open", open ? "true" : "false");
   }
 
-  function resolveLocale() {
-    // First check stored contentLocale
-    const stored = readStorage(config.storageKeys.contentLocale);
-    if (stored && config.locales.includes(stored)) {
-      return stored;
+  function getBrowserLocales() {
+    const langs = Array.isArray(navigator.languages)
+      ? navigator.languages.filter(Boolean)
+      : [];
+    if (langs.length > 0) {
+      return langs;
+    }
+    const fallback = navigator.language || navigator.userLanguage;
+    return fallback ? [fallback] : [];
+  }
+
+  function resolveAllModeLocales(preferredLocale) {
+    const storedUiLocale = readStorage(config.storageKeys.uiLocale);
+    const browserLangs = getBrowserLocales();
+    const contentCandidates = [preferredLocale, storedUiLocale, ...browserLangs, config.documentDefaultLocale]
+      .filter(Boolean);
+
+    let contentLocale = config.documentDefaultLocale;
+    for (const candidate of contentCandidates) {
+      const matched = matchLocaleInList(candidate, config.locales);
+      if (matched) {
+        contentLocale = matched;
+        break;
+      }
     }
 
-    // all mode: match browser language to doc locales
-    const browserLang =
-      navigator.language ||
-      navigator.userLanguage;
-    const fromBrowser = matchLocaleInList(browserLang, config.locales);
-    if (fromBrowser) {
-      return fromBrowser;
-    }
+    const uiLocale =
+      matchLocaleInList(contentLocale, config.rendererLocales) ??
+      resolveUiFromRendererChain(storedUiLocale, browserLangs);
 
-    // Fallback to exportLocale (SSR default)
-    return config.exportLocale;
+    return {
+      contentLocale,
+      uiLocale,
+      shouldPersistUiLocale: true,
+    };
+  }
+
+  function resolveSingleModeUiLocale(singleLocale) {
+    const browserLangs = getBrowserLocales();
+    const fromSingle = matchLocaleInList(singleLocale, config.rendererLocales);
+    if (fromSingle) {
+      return fromSingle;
+    }
+    const fromBrowser = browserLangs
+      .map((lang) => matchLocaleInList(lang, config.rendererLocales))
+      .find(Boolean);
+    return fromBrowser ?? config.defaultRendererLocale;
   }
 
   function resolvePreset() {
@@ -253,11 +294,17 @@
   let colorMode = resolveColorMode();
   // activeLocale is used by preset/mode handlers for UI refresh
   let activeLocale = config.exportLocale;
+  let activeUiLocale = config.defaultRendererLocale;
 
   // single mode: locale is fixed at SSR value; skip locale logic entirely
   if (config.localeMode !== "single") {
-    activeLocale = resolveLocale();
-    applyLocale(activeLocale);
+    const initial = resolveAllModeLocales();
+    activeLocale = initial.contentLocale;
+    activeUiLocale = initial.uiLocale;
+    applyLocale(activeLocale, activeUiLocale);
+    if (initial.shouldPersistUiLocale) {
+      writeStorage(config.storageKeys.uiLocale, activeUiLocale);
+    }
     syncActiveUi({ locale: activeLocale, preset, colorMode });
 
     // Wire locale buttons
@@ -265,16 +312,22 @@
       btn.addEventListener("click", () => {
         const v = btn.getAttribute("data-airp-locale-option");
         if (!v) return;
-        applyLocale(v);
-        writeStorage(config.storageKeys.contentLocale, v);
-        activeLocale = v;
+        const next = resolveAllModeLocales(v);
+        activeLocale = next.contentLocale;
+        activeUiLocale = next.uiLocale;
+        applyLocale(activeLocale, activeUiLocale);
+        if (next.shouldPersistUiLocale) {
+          writeStorage(config.storageKeys.uiLocale, activeUiLocale);
+        }
         syncActiveUi({ locale: activeLocale, preset, colorMode });
         closeAllPopovers();
       });
     }
   } else {
-    // single mode: apply UI chrome strings for the fixed locale
-    updateChromeUi(activeLocale);
+    // single mode: locale is fixed and language storage is ignored.
+    activeLocale = config.exportLocale;
+    activeUiLocale = resolveSingleModeUiLocale(activeLocale);
+    updateChromeUi(activeUiLocale);
     syncActiveUi({ locale: activeLocale, preset, colorMode });
   }
 
@@ -301,6 +354,25 @@
     if (e.key === "Escape") closeAllPopovers();
   });
 
+  document.addEventListener("click", (e) => {
+    const t = e.target;
+    if (!(t instanceof Element)) return;
+    const actionEl = t.closest("[data-airp-file-tree-action]");
+    if (!(actionEl instanceof HTMLElement)) return;
+
+    const tree = actionEl.closest("[data-airp-file-tree]");
+    if (!(tree instanceof HTMLElement)) return;
+
+    const action = actionEl.getAttribute("data-airp-file-tree-action");
+    if (action === "expand-all") {
+      setAllFileTreeNodesOpen(tree, true);
+      return;
+    }
+    if (action === "collapse-all") {
+      setAllFileTreeNodesOpen(tree, false);
+    }
+  });
+
   // Wire preset buttons
   for (const btn of document.querySelectorAll("[data-airp-preset]")) {
     btn.addEventListener("click", () => {
@@ -310,7 +382,7 @@
       writeStorage(config.storageKeys.theme, v);
       preset = v;
       syncActiveUi({ locale: activeLocale, preset, colorMode });
-      updateChromeUi(activeLocale);
+      updateChromeUi(activeUiLocale);
       closeAllPopovers();
     });
   }

@@ -4,7 +4,6 @@ import { ReportToolbar } from "@/components/report-toolbar";
 import { useReportChrome } from "@/hooks/use-report-chrome";
 import { loadDocumentFromFile } from "@/pipeline/load-document.browser";
 import { downloadArtifact } from "@/pipeline/download-artifact.browser";
-import "@/pipeline/setup.browser";
 import { registerBackend, renderDocument } from "@/pipeline/render-document";
 import type { RenderTarget } from "@/pipeline/types";
 import { tRenderer } from "@/lib/renderer-i18n";

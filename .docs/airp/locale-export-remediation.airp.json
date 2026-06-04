@@ -2,16 +2,17 @@
   "schemaVersion": "1.0.0",
   "meta": {
     "title": "AIRP Renderer 语言与导出整改方案",
-    "subtitle": "最终收敛版：Markdown 外层判定 + HTML 双模式",
+    "subtitle": "最终收敛版：统一语言推导引擎 + HTML 双模式",
     "kind": "plan-review",
     "createdAt": "2026-06-03T22:00:00.000Z",
-    "updatedAt": "2026-06-04T10:30:00.000Z",
+    "updatedAt": "2026-06-04T14:20:00.000Z",
     "authors": ["Cursor Agent", "GitHub Copilot"],
-    "tags": ["airp", "renderer", "i18n", "locale", "html", "markdown", "export"],
+    "tags": ["airp", "renderer", "i18n", "locale", "html", "markdown", "export", "refactor"],
     "sourceRefs": [
       { "type": "path", "value": "renderer/src/config/renderer-config.ts" },
       { "type": "path", "value": "renderer/src/lib/preferences.ts" },
       { "type": "path", "value": "renderer/src/hooks/use-report-chrome.ts" },
+      { "type": "path", "value": "renderer/src/components/locale-menu.tsx" },
       { "type": "path", "value": "renderer/src/components/export-menu.tsx" },
       { "type": "path", "value": "renderer/scripts/render-markdown.ts" },
       { "type": "path", "value": "renderer/scripts/render-html.ts" },
@@ -31,12 +32,12 @@
     {
       "type": "hero",
       "metrics": [
-        { "title": "范围", "value": "Dashboard + CLI + Skill", "description": "统一 HTML 模式语义" },
+        { "title": "范围", "value": "Dashboard + CLI + Skill", "description": "统一推导契约，全链路同构" },
         { "title": "Markdown 参数", "value": "--locale (CLI 必传)", "description": "Skill 可省略语言，由 Skill 解析默认 locale" },
         { "title": "HTML 参数", "value": "locale-mode + single-locale", "description": "不再使用初始语言 hint" },
         { "title": "默认模式", "value": "all", "description": "single 需要显式传 single-locale" },
         { "title": "错误策略", "value": "fail-closed", "description": "参数不合法即报错退出" },
-        { "title": "存储键", "value": "ui/content/theme/themeMode", "description": "按新 key 固定命名" }
+        { "title": "本地存储", "value": "ui/theme/themeMode", "description": "移除 contentLocale，本次不做迁移兼容" }
       ],
       "badges": [
         { "label": "最终收敛版", "tone": "accent" }
@@ -44,12 +45,12 @@
     },
     {
       "type": "lead",
-      "text": "本版本收敛为两条并行契约。Markdown：调用方在外层确定最终 locale 并传入底层渲染，底层不做自动推断；`render-markdown.ts` 的 CLI 必须显式传 `--locale`，`airp-markdown` Skill 可省略语言并由 Skill 先解析 `doc.i18n.defaultLocale` 再调用 CLI。HTML：入口层先决定导出模式与语言，再映射成 CLI 参数；CLI 只校验与执行，不做任何推断。all/single 语义严格分离，不再支持“初始语言 hint”；all 模式下 SSR `html lang` 与 `title` 固定使用 `doc.i18n.defaultLocale`。"
+      "text": "本版本收敛为两条并行契约。Markdown：调用方在外层确定最终 locale 并传入底层渲染，底层不做自动推断；`render-markdown.ts` 的 CLI 必须显式传 `--locale`，`airp-markdown` Skill 可省略语言并由 Skill 先解析 `doc.i18n.defaultLocale` 再调用 CLI。HTML：入口层先决定导出模式与语言，再映射成 CLI 参数；CLI 只校验与执行，不做任何推断。all/single 语义严格分离，不再支持“初始语言 hint”；all 模式下 SSR `html lang` 与 `title` 固定使用 `doc.i18n.defaultLocale`。Dashboard 空态也显示语言菜单（rendererLocales），仅切换 UI 语言；Dashboard 有文档与 HTML all 的文档语言判定规则保持一致，统一由语言推导引擎实现。"
     },
     {
       "type": "section",
       "id": "requirements",
-      "title": "最终需求（已确认）",
+      "title": "最终需求（以当前结论为准）",
       "children": [
         {
           "type": "definitionList",
@@ -72,11 +73,11 @@
             },
             {
               "term": "R5 · 取消初始语言 hint",
-              "definition": "移除“初始语言 hint”能力。all 模式下“首次显示语言”只由导出后 HTML 的 runtime 处理：runtime 在浏览器打开页面时按 `navigator.languages`/`navigator.language` 匹配 `doc.i18n.locales`，未命中回退 `doc.i18n.defaultLocale`。入口层只决定导出模式（all/single），CLI 只校验参数并写入配置，SSR 只按文档默认语言输出初始 `html lang` 与 `title`，不再接受或消费任何初始语言提示参数。"
+              "definition": "移除“初始语言 hint”能力。all 模式下“首次显示语言”由统一推导引擎处理：按 `airp-ui-locale`、`navigator.languages`/`navigator.language`、默认语言回退链决定。入口层只决定导出模式（all/single），CLI 只校验参数并写入配置。"
             },
             {
               "term": "R6 · all 模式语义",
-              "definition": "输出全部 locale panel，显示 locale 切换器，允许 runtime 切换，可持久化内容语言；SSR 的 `html lang` 与 `title` 使用 `doc.i18n.defaultLocale`。"
+              "definition": "输出全部 locale panel，显示 locale 切换器。文档语言与 UI 语言由统一推导引擎联动决策。SSR 的 `html lang` 与 `title` 使用 `doc.i18n.defaultLocale`；runtime 根据推导结果切换并同步更新 `html lang` 与 `title`。"
             },
             {
               "term": "R7 · single 模式语义",
@@ -84,19 +85,31 @@
             },
             {
               "term": "R8 · single 模式产物裁剪",
-              "definition": "single 只输出一个 panel，不渲染 locale 切换器，不读写 locale localStorage，不绑定 locale 切换逻辑；theme 相关能力保留。"
+              "definition": "single 只输出一个 panel，不渲染 locale 切换器，不绑定 locale 切换逻辑，不读写语言本地存储；theme 相关能力保留。"
             },
             {
               "term": "R9 · Dashboard 的 HTML 入参映射",
               "definition": "导出按钮的“HTML”使用二级菜单：第一项“所有语言”（all），后续逐项列出 `airp.json` 支持语言（single + 对应 locale）。Skill 的映射规则单列在“入口表达与后端语义映射”表中。"
             },
             {
-              "term": "R10 · storage keys",
-              "definition": "`renderer/src/config/renderer-config.ts` 固定命名：`uiLocale=airp-ui-locale`、`contentLocale=airp-content-locale`、`theme=airp-theme`、`themeMode=airp-theme-mode`；本次不做迁移兼容。"
+              "term": "R10 · storage keys（重定义）",
+              "definition": "`renderer/src/config/renderer-config.ts` 固定命名：`uiLocale=airp-ui-locale`、`theme=airp-theme`、`themeMode=airp-theme-mode`。移除 `contentLocale` 存储键；本次不做迁移兼容。"
             },
             {
-              "term": "R11 · 先写死契约再改入口",
-              "definition": "先确定 HTML render context 最终字段契约，再实现 Dashboard/CLI/Skill，避免入口各自解释语义。"
+              "term": "R11 · ui 存储值约束",
+              "definition": "`airp-ui-locale` 仅允许写入 rendererLocales 允许值。写入动作发生在最终 UI 语言推导完成之后，不在菜单点击瞬间盲写。"
+            },
+            {
+              "term": "R12 · 统一推导引擎",
+              "definition": "Dashboard（空态/有文档）与 HTML all 使用同一 resolver；其中空态仅应用 rendererLocales 的 UI 语言判定，有文档与 HTML all 共享文档语言判定链。禁止各自实现一份 locale fallback 逻辑。"
+            },
+            {
+              "term": "R13 · single UI 语言严格规则",
+              "definition": "single 导出时 UI 语言推导顺序固定为：single-locale -> 浏览器语言 -> renderer defaultLocale。严格不读取语言本地存储。"
+            },
+            {
+              "term": "R14 · 先冻结契约再改代码",
+              "definition": "先确定统一推导函数的输入输出与优先级矩阵，再改 Dashboard/runtime/SSR，避免实现层回归“按需求散改”。"
             }
           ]
         }
@@ -169,7 +182,7 @@
         },
         {
           "type": "table",
-          "caption": "R5 责任分层（谁处理首次语言）",
+          "caption": "责任分层（统一推导版本）",
           "columns": [
             { "key": "layer", "label": "环节" },
             { "key": "responsibility", "label": "责任" }
@@ -177,7 +190,7 @@
           "rows": [
             {
               "layer": "入口层（Dashboard/Skill）",
-              "responsibility": "只决定导出模式与参数映射，不决定 all 模式首次显示语言"
+              "responsibility": "只决定导出模式与参数映射，不决定具体 fallback 细节"
             },
             {
               "layer": "CLI（render-html.ts）",
@@ -185,34 +198,75 @@
             },
             {
               "layer": "SSR（static-html.tsx）",
-              "responsibility": "all 模式下按 doc.defaultLocale 输出初始 html lang 与 title"
+              "responsibility": "all 模式按 doc.defaultLocale 输出初始 html lang 与 title；single 按 single-locale 输出"
+            },
+            {
+              "layer": "推导引擎（shared resolver）",
+              "responsibility": "输出 finalContentLocale 与 finalUiLocale，并控制何时写入 airp-ui-locale"
             },
             {
               "layer": "导出后 runtime（airp-chrome.js）",
-              "responsibility": "页面打开后按浏览器语言匹配 doc.locales，未命中回退 doc.defaultLocale；这是 all 模式首次语言的唯一决策点"
+              "responsibility": "调用同一推导规则应用 locale，更新 html lang/title，驱动切换器"
             }
           ]
         },
         {
           "type": "table",
-          "caption": "静态HTML渲染行为规则",
+          "caption": "静态 HTML 行为规则（更新后）",
           "columns": [
             { "key": "mode", "label": "mode" },
-            { "key": "ssr", "label": "SSR 生成" },
-            { "key": "runtime", "label": "Runtime 执行" }
+            { "key": "available", "label": "可用语言列表" },
+            { "key": "content", "label": "文档语言推导" },
+            { "key": "ui", "label": "UI 语言推导" },
+            { "key": "storage", "label": "存储策略" }
           ],
           "rows": [
             {
               "mode": "all",
-              "ssr": "输出全部 panel；`html lang` 与 `title` 使用 `doc.i18n.defaultLocale`；显示 locale 切换器",
-              "runtime": "页面加载时按浏览器语言匹配 doc.locales、未命中回退 doc.defaultLocale；用户切换 contentLocale 时同时更新 `html lang` 与 `title`；允许持久化 contentLocale"
+              "available": "doc.locales",
+              "content": "airp-ui-locale -> 浏览器语言 -> doc.defaultLocale",
+              "ui": "若 content 在 rendererLocales 中则等于 content；否则 airp-ui-locale -> 浏览器语言 -> renderer.defaultLocale",
+              "storage": "仅在 finalUiLocale 确认后写 airp-ui-locale；不使用 contentLocale 存储"
             },
             {
               "mode": "single",
-              "ssr": "只输出 single-locale 对应 panel；`html lang` 与 `title` 使用 `single-locale`；隐藏 locale 切换器",
-              "runtime": "`html lang` 与 `title` 保持固定；不读取/写入 locale storage；不绑定 locale 切换；仅保留 theme 逻辑"
+              "available": "仅 single-locale（不显示切换器）",
+              "content": "single-locale",
+              "ui": "single-locale -> 浏览器语言 -> renderer.defaultLocale",
+              "storage": "严格不读写语言本地存储"
             }
           ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "architecture-refactor",
+      "title": "重构导向（全链路、可复用、简约）",
+      "children": [
+        {
+          "type": "code",
+          "language": "typescript",
+          "filename": "renderer/src/lib/locale-resolution.ts（建议新增）",
+          "code": "export type LocaleResolutionInput = {\n  mode: \"dashboard-empty\" | \"dashboard-doc\" | \"html-all\" | \"html-single\";\n  rendererLocales: readonly string[];\n  rendererDefaultLocale: string;\n  docLocales?: readonly string[];\n  docDefaultLocale?: string;\n  singleLocale?: string;\n  storedUiLocale?: string | null;\n  browserLocales: readonly string[];\n};\n\nexport type LocaleResolutionOutput = {\n  availableLocales: readonly string[];\n  contentLocale: string;\n  uiLocale: string;\n  shouldPersistUiLocale: boolean;\n};"
+        },
+        {
+          "type": "decision",
+          "id": "adr-single-resolver",
+          "title": "单一语言推导引擎",
+          "status": "accepted",
+          "context": "此前 Dashboard、SSR、runtime 分散实现 fallback，容易漂移与回归。",
+          "rationale": "把规则集中到单一 resolver，可测试、可复用、可扩展；业务入口只做参数映射，避免为需求散改。"
+        },
+        {
+          "type": "constraint",
+          "rule": "禁止在 use-report-chrome.ts、static-html.tsx、airp-chrome.js 三处分别写 fallback 逻辑。",
+          "nonNegotiable": true
+        },
+        {
+          "type": "constraint",
+          "rule": "任何写入 airp-ui-locale 的代码路径必须基于 finalUiLocale，且 finalUiLocale 必须属于 rendererLocales。",
+          "nonNegotiable": true
         }
       ]
     },
@@ -243,7 +297,7 @@
             {
               "entry": "airp-markdown SKILL",
               "expression": "/airp-markdown path [语言]",
-              "mapped": "有语言 -> 解析为 `--locale <code>`；无语言 -> Skill 先取 doc.defaultLocale，再传 `--locale <default>`"
+              "mapped": "有语言 -> 解析为 --locale <code>；无语言 -> Skill 先取 doc.defaultLocale，再传 --locale <default>"
             },
             {
               "entry": "Dashboard ExportMenu",
@@ -258,7 +312,7 @@
             {
               "entry": "airp-html SKILL",
               "expression": "/airp-html path [语言]",
-              "mapped": "无语言 -> `--locale-mode all`；有语言 -> `--locale-mode single --single-locale <code>`（先做 alias 解析）"
+              "mapped": "无语言 -> --locale-mode all；有语言 -> --locale-mode single --single-locale <code>（先做 alias 解析）"
             }
           ]
         }
@@ -271,63 +325,59 @@
       "children": [
         {
           "type": "table",
-          "caption": "实现清单（去重版）",
+          "caption": "实现清单（重构版）",
           "columns": [
             { "key": "file", "label": "文件" },
             { "key": "change", "label": "改动" }
           ],
           "rows": [
             {
-              "file": "renderer/src/pipeline/types.ts",
-              "change": "区分 Markdown 与 HTML 的 context 语义；HTML 用判别联合，Markdown 只接受外层传入 locale"
-            },
-            {
-              "file": "renderer/scripts/render-markdown.ts",
-              "change": "`--locale` 改为必传；不支持 locale 时报错退出"
-            },
-            {
-              "file": "renderer/src/backends/markdown/*",
-              "change": "仅使用 ctx.locale 渲染；不做 locale 自动推断"
-            },
-            {
-              "file": "skills/airp-markdown/SKILL.md",
-              "change": "文档化 Skill 到 CLI 的映射：无语言时 Skill 读取 doc.defaultLocale 并显式传 `--locale`"
-            },
-            {
-              "file": "renderer/scripts/render-html.ts",
-              "change": "实现 `--locale-mode` + `--single-locale` 参数解析和 fail-closed 校验"
-            },
-            {
-              "file": "renderer/src/App.tsx",
-              "change": "导出 Markdown/HTML 时都传显式语言选择；HTML 不再传“初始语言 hint”"
-            },
-            {
-              "file": "renderer/src/components/export-menu.tsx",
-              "change": "Markdown 与 HTML 都改二级菜单；Markdown 按 doc.locales 枚举；HTML 第一项所有语言，后续按 doc.locales 枚举"
-            },
-            {
-              "file": "renderer/src/backends/html/static-html.tsx",
-              "change": "按 all/single 双路径 SSR；all 的 html lang/title 用 doc.defaultLocale"
-            },
-            {
-              "file": "renderer/src/components/static-chrome-markup.tsx",
-              "change": "single 模式不渲染 locale popover"
-            },
-            {
-              "file": "renderer/public/airp-chrome.js",
-              "change": "all 保留 locale runtime；single 剥离 locale storage 与切换事件"
-            },
-            {
-              "file": "renderer/src/config/renderer-config.ts",
-              "change": "storageKeys 改为 uiLocale/contentLocale/theme/themeMode 新命名"
+              "file": "renderer/src/lib/locale-resolution.ts",
+              "change": "新增统一语言推导引擎：输入模式与上下文，输出 content/ui 与持久化策略"
             },
             {
               "file": "renderer/src/lib/preferences.ts",
-              "change": "对应读取/写入逻辑改用新 storage key；不做迁移分支"
+              "change": "删除 contentLocale 读写 API；保留 ui/theme/themeMode；写 uiLocale 前增加 rendererLocales 约束"
+            },
+            {
+              "file": "renderer/src/config/renderer-config.ts",
+              "change": "storageKeys 移除 contentLocale，仅保留 uiLocale/theme/themeMode"
+            },
+            {
+              "file": "renderer/src/hooks/use-report-chrome.ts",
+              "change": "改为调用统一 resolver，菜单联动由 resolver 决策，避免组件层拼接 fallback"
+            },
+            {
+              "file": "renderer/public/airp-chrome.js",
+              "change": "all/single 都调用统一规则：all 可切换并更新 html lang/title；single 不读写语言存储"
+            },
+            {
+              "file": "renderer/src/backends/html/static-html.tsx",
+              "change": "保持 all/single SSR 双路径，同时把 runtime 需要的解析上下文完整注入 config"
+            },
+            {
+              "file": "renderer/src/components/locale-menu.tsx",
+              "change": "单菜单联动入口，行为只负责上报用户意图，不直接决定存储写入"
+            },
+            {
+              "file": "renderer/src/components/export-menu.tsx",
+              "change": "保持 HTML 二级菜单映射 all/single，不引入推断逻辑"
+            },
+            {
+              "file": "renderer/scripts/render-markdown.ts",
+              "change": "--locale 必传，非法失败退出"
+            },
+            {
+              "file": "renderer/scripts/render-html.ts",
+              "change": "locale-mode/single-locale fail-closed 校验"
+            },
+            {
+              "file": "skills/airp-markdown/SKILL.md",
+              "change": "无语言输入时先取 doc.defaultLocale 再传 CLI"
             },
             {
               "file": "skills/airp-html/SKILL.md",
-              "change": "文档化映射：无语言 -> `--locale-mode all`；有语言 -> `--locale-mode single --single-locale <code>`"
+              "change": "无语言 -> all；有语言 -> single + single-locale"
             }
           ]
         }
@@ -341,20 +391,17 @@
         {
           "type": "checklist",
           "items": [
-            { "label": "render-markdown.ts 将 --locale 设为必传；非法 locale 失败退出", "checked": false },
-            { "label": "Markdown backend 只消费 ctx.locale，移除/禁止内部 locale 推断", "checked": false },
-            { "label": "Dashboard Markdown 导出改二级菜单并透传用户选择语言", "checked": false },
-            { "label": "airp-markdown SKILL 同步参数语义（无语言时读取 doc.defaultLocale 再传 CLI）", "checked": false },
-            { "label": "锁定 HtmlRenderContext 类型契约（mode 判别联合）", "checked": false },
-            { "label": "render-html.ts 接入 locale-mode/single-locale 与 fail-closed", "checked": false },
-            { "label": "ExportMenu 实现 Markdown/HTML 二级菜单（Markdown: doc locales；HTML: 所有语言 + doc locales）", "checked": false },
-            { "label": "App.tsx 传递 localeSelection 到 renderDocument", "checked": false },
-            { "label": "static-html.tsx 完成 all/single SSR 双路径", "checked": false },
-            { "label": "static-chrome-markup.tsx 按模式显示或隐藏 locale 控件", "checked": false },
-            { "label": "airp-chrome.js 区分 all/single runtime 逻辑", "checked": false },
-            { "label": "renderer-config.ts 与 preferences.ts 更新 storage keys", "checked": false },
-            { "label": "airp-html SKILL 文档同步参数语义", "checked": false },
-            { "label": "全链路回归：Dashboard/CLI/Skill 三入口输出一致", "checked": false }
+            { "label": "冻结 locale-resolution.ts 输入输出与优先级矩阵", "checked": false },
+            { "label": "renderer-config.ts 移除 contentLocale 存储键", "checked": false },
+            { "label": "preferences.ts 删除 contentLocale API，保留 ui/theme/themeMode", "checked": false },
+            { "label": "use-report-chrome.ts 接入统一 resolver", "checked": false },
+            { "label": "airp-chrome.js 接入统一 resolver 语义（all/single 分支）", "checked": false },
+            { "label": "single 模式严格不读写语言存储", "checked": false },
+            { "label": "仅在 finalUiLocale 决定后写 airp-ui-locale", "checked": false },
+            { "label": "render-html.ts 与 static-html.tsx 同步新 config 结构", "checked": false },
+            { "label": "Markdown 契约保持不变并回归验证", "checked": false },
+            { "label": "全链路回归：Dashboard/CLI/Skill 三入口输出一致", "checked": false },
+            { "label": "补充 resolver 单元测试覆盖 all/single/empty/doc 四场景", "checked": false }
           ]
         }
       ]
@@ -373,35 +420,27 @@
           ],
           "rows": [
             {
-              "scene": "Dashboard: doc.locales=[zh-CN,en,ja-JP]，Markdown 菜单选择 en",
-              "behavior": "导出 en Markdown；locale 来自菜单选择并由调用层透传，backend 不重算"
+              "scene": "Dashboard 空态：无文档",
+              "behavior": "availableLocales=rendererLocales；ui=preferred(菜单选择)->airp-ui-locale->浏览器->rendererDefault；content=ui；菜单可见且仅影响 UI 语言"
             },
             {
-              "scene": "airp-markdown: 未传 --locale",
-              "behavior": "CLI 报错退出（参数缺失）"
+              "scene": "Dashboard 有文档：doc.locales=[zh-CN,en], airp-ui-locale=en",
+              "behavior": "content 优先命中 en；若 en 不在 rendererLocales 则 ui 按 airp-ui-locale->浏览器->rendererDefault 回退"
             },
             {
-              "scene": "airp-markdown SKILL: 用户未提供语言",
-              "behavior": "Skill 读取 doc.defaultLocale，并以 `--locale <default>` 调用 CLI"
+              "scene": "Dashboard 菜单选择了仅文档支持语言（不在 rendererLocales）",
+              "behavior": "菜单事件触发重推导；最终 uiLocale 回退到 rendererLocales 合法值；airp-ui-locale 仅写入最终 uiLocale"
             },
             {
-              "scene": "airp-markdown: --locale fr，且 doc 不支持 fr",
-              "behavior": "报错退出"
+              "scene": "HTML all 首次加载",
+              "behavior": "与 Dashboard 有文档同一规则，且同步更新 html lang/title"
             },
             {
-              "scene": "CLI: --locale-mode all",
-              "behavior": "导出 all 模式 HTML；首次显示按浏览器语言匹配，否则 doc.defaultLocale"
-            },
-            {
-              "scene": "CLI: --locale-mode single --single-locale zh-CN（且 doc 支持）",
-              "behavior": "导出 single 模式 HTML；仅一个 panel；无 locale 切换与 locale storage"
+              "scene": "HTML single，single-locale=fr（fr 不在 rendererLocales）",
+              "behavior": "content=fr；ui=浏览器->rendererDefault；不读写语言存储，不显示切换器"
             },
             {
               "scene": "CLI: --locale-mode single 未传 --single-locale",
-              "behavior": "报错退出"
-            },
-            {
-              "scene": "CLI: --locale-mode single --single-locale fr（doc 不支持）",
               "behavior": "报错退出"
             },
             {
@@ -409,12 +448,8 @@
               "behavior": "报错退出"
             },
             {
-              "scene": "Dashboard: HTML -> 所有语言",
-              "behavior": "等价于 {mode:'all'}，与 CLI/Skill all 行为一致"
-            },
-            {
-              "scene": "Dashboard: HTML -> 选择某语言",
-              "behavior": "等价于 {mode:'single', locale}，与 CLI/Skill single 行为一致"
+              "scene": "airp-markdown: 未传 --locale",
+              "behavior": "报错退出"
             }
           ]
         }
@@ -424,11 +459,11 @@
       "type": "section",
       "id": "summary",
       "title": "结论",
-      "lead": "本方案已收敛为一致、可实现且可测试的最终版本。Markdown：Dashboard 与 Skill 在外层决定 locale，CLI 只执行（`render-markdown.ts` 的 `--locale` 必传）；Skill 无语言输入时先读 doc.defaultLocale 再显式传给 CLI。HTML：入口层先决定模式和语言，再映射为 `locale-mode`/`single-locale` 调用 CLI；CLI 仅校验参数与执行渲染，不做任何推断。Skill 映射固定为“无语言 -> all，有语言 -> single + single-locale”，并在 single-locale 不在文档中时直接报错退出。Dashboard/CLI/Skill 只负责“表达方式”，backend 只负责“统一语义执行”。storage key 固定为 `airp-ui-locale`、`airp-content-locale`、`airp-theme`、`airp-theme-mode`，本次不做迁移兼容。",
+      "lead": "本方案已收敛为一致、可实现且可测试的重构版本。核心变化：移除 contentLocale 本地存储，改为单键 airp-ui-locale 与统一语言推导引擎；Dashboard 空态支持 UI 语言切换（不依赖文档），有文档与 HTML all 共用文档语言判定链，single 模式严格不理会语言本地存储。Markdown 契约保持既有收敛结论不变，HTML 保持 locale-mode/single-locale fail-closed 校验。入口层负责表达，resolver 负责决策，backend 负责执行。",
       "children": [
         {
           "type": "constraint",
-          "rule": "不在 markdown/html backend 内做 locale 推断；入口必须传入最终解析结果。",
+          "rule": "禁止在业务入口散落 locale fallback 代码；所有判定必须收敛到统一 resolver。",
           "nonNegotiable": true
         }
       ]

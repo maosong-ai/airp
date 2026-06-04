@@ -2,6 +2,7 @@ import { ExportMenu } from "@/components/export-menu";
 import { LocaleMenu } from "@/components/locale-menu";
 import { ThemeAppearanceMenu } from "@/components/theme-appearance-menu";
 import { Button } from "@/components/ui/button";
+import { rendererConfig } from "@/config/renderer-config";
 import type { AirpDocument } from "@/lib/airp-schema";
 import { tRenderer } from "@/lib/renderer-i18n";
 import type { ThemePreset } from "@/lib/themes";
@@ -90,7 +91,7 @@ export function ReportToolbar({
             uiLocale={uiLocale}
           />
           <LocaleMenu
-            doc={doc}
+            locales={doc ? doc.i18n.locales : rendererConfig.locales}
             onChange={onLocaleChange}
             uiLocale={uiLocale}
             value={locale}

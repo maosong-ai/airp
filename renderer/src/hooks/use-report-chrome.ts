@@ -1,20 +1,72 @@
 import type { AirpDocument } from "@/lib/airp-schema";
+import { rendererConfig } from "@/config/renderer-config";
+import { resolveLocales } from "@/lib/locale-resolution";
 import {
-  resolveContentLocale,
+  readStoredUiLocale,
   resolveInitialTheme,
-  resolveUiLocale,
-  writeStoredContentLocale,
+  writeStoredUiLocale,
   writeStoredTheme,
 } from "@/lib/preferences";
 import type { ThemePreset } from "@/lib/themes";
 import { useCallback, useEffect, useState } from "react";
 
+function browserLocales(): string[] {
+  if (typeof navigator === "undefined") {
+    return [];
+  }
+  const list = Array.isArray(navigator.languages)
+    ? navigator.languages
+    : [];
+  if (list.length > 0) {
+    return list;
+  }
+  return navigator.language ? [navigator.language] : [];
+}
+
+function resolveDashboardState(
+  doc: AirpDocument | null,
+  preferredLocale?: string | null
+): { uiLocale: string; contentLocale: string; shouldPersistUiLocale: boolean } {
+  const base = {
+    rendererLocales: rendererConfig.locales,
+    rendererDefaultLocale: rendererConfig.defaultLocale,
+    storedUiLocale: readStoredUiLocale(),
+    browserLocales: browserLocales(),
+  };
+
+  if (!doc) {
+    const resolved = resolveLocales({
+      mode: "dashboard-empty",
+      ...base,
+      preferredLocale,
+    });
+    return {
+      uiLocale: resolved.uiLocale,
+      contentLocale: resolved.contentLocale,
+      shouldPersistUiLocale: resolved.shouldPersistUiLocale,
+    };
+  }
+
+  const resolved = resolveLocales({
+    mode: "dashboard-doc",
+    ...base,
+    docLocales: doc.i18n.locales,
+    docDefaultLocale: doc.i18n.defaultLocale,
+    preferredLocale,
+  });
+
+  return {
+    uiLocale: resolved.uiLocale,
+    contentLocale: resolved.contentLocale,
+    shouldPersistUiLocale: resolved.shouldPersistUiLocale,
+  };
+}
+
 export function useReportChrome(initialDoc?: AirpDocument | null) {
+  const initialResolved = resolveDashboardState(initialDoc ?? null);
   const [doc, setDoc] = useState<AirpDocument | null>(initialDoc ?? null);
-  const [uiLocale] = useState(() => resolveUiLocale());
-  const [contentLocale, setContentLocale] = useState(() =>
-    resolveContentLocale(initialDoc ?? null, resolveUiLocale())
-  );
+  const [uiLocale, setUiLocale] = useState(initialResolved.uiLocale);
+  const [contentLocale, setContentLocale] = useState(initialResolved.contentLocale);
   const [themePreset, setThemePreset] = useState<ThemePreset>(resolveInitialTheme);
 
   useEffect(() => {
@@ -22,15 +74,22 @@ export function useReportChrome(initialDoc?: AirpDocument | null) {
     writeStoredTheme(themePreset);
   }, [themePreset]);
 
-  const loadDocument = useCallback((parsed: AirpDocument) => {
-    setDoc(parsed);
-    setContentLocale(resolveContentLocale(parsed, uiLocale));
+  useEffect(() => {
+    writeStoredUiLocale(uiLocale);
   }, [uiLocale]);
 
-  const handleLocaleChange = useCallback((next: string) => {
-    setContentLocale(next);
-    writeStoredContentLocale(next);
+  const loadDocument = useCallback((parsed: AirpDocument) => {
+    const resolved = resolveDashboardState(parsed);
+    setDoc(parsed);
+    setUiLocale(resolved.uiLocale);
+    setContentLocale(resolved.contentLocale);
   }, []);
+
+  const handleLocaleChange = useCallback((next: string) => {
+    const resolved = resolveDashboardState(doc, next);
+    setUiLocale(resolved.uiLocale);
+    setContentLocale(resolved.contentLocale);
+  }, [doc]);
 
   const handleThemePresetChange = useCallback((preset: ThemePreset) => {
     setThemePreset(preset);
