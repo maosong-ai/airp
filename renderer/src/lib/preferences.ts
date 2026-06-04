@@ -27,15 +27,24 @@ function writeStorage(key: string, value: string): void {
   }
 }
 
-export function readStoredLocale(): string | null {
-  const raw = readStorage(rendererConfig.storageKeys.locale);
+export function readStoredUiLocale(): string | null {
+  const raw = readStorage(rendererConfig.storageKeys.uiLocale);
   return raw
     ? matchLocaleInList(raw, rendererConfig.locales)
     : null;
 }
 
-export function writeStoredLocale(locale: string): void {
-  writeStorage(rendererConfig.storageKeys.locale, locale);
+export function writeStoredUiLocale(locale: string): void {
+  writeStorage(rendererConfig.storageKeys.uiLocale, locale);
+}
+
+export function readStoredContentLocale(): string | null {
+  const raw = readStorage(rendererConfig.storageKeys.contentLocale);
+  return raw ? raw : null;
+}
+
+export function writeStoredContentLocale(locale: string): void {
+  writeStorage(rendererConfig.storageKeys.contentLocale, locale);
 }
 
 export function readStoredTheme(): ThemePreset | null {
@@ -62,9 +71,9 @@ export function writeStoredThemeMode(mode: ThemeMode): void {
   writeStorage(rendererConfig.storageKeys.themeMode, mode);
 }
 
-/** Renderer chrome locale when no document is loaded (or for UI copy). */
-export function resolveRendererLocale(): string {
-  const stored = readStoredLocale();
+/** UI chrome locale when no document is loaded (or for UI copy). */
+export function resolveUiLocale(): string {
+  const stored = readStoredUiLocale();
   if (stored) {
     return stored;
   }
@@ -76,6 +85,30 @@ export function resolveRendererLocale(): string {
     return fromSystem;
   }
   return rendererConfig.defaultLocale;
+}
+
+/** Document content locale: prefer stored, then match to doc locales. */
+export function resolveContentLocale(
+  doc: AirpDocument | null,
+  uiLocale: string
+): string {
+  if (!doc) {
+    return uiLocale;
+  }
+  const stored = readStoredContentLocale();
+  if (stored && doc.i18n.locales.includes(stored)) {
+    return stored;
+  }
+  // Try to match ui locale to doc locales
+  const fromUi = matchLocaleInList(uiLocale, doc.i18n.locales);
+  if (fromUi) {
+    return fromUi;
+  }
+  const fromSystem = matchLocaleInList(detectSystemLocale(), doc.i18n.locales);
+  if (fromSystem) {
+    return fromSystem;
+  }
+  return doc.i18n.defaultLocale;
 }
 
 export function resolveInitialTheme(): ThemePreset {
@@ -94,30 +127,10 @@ export function resolveInitialThemeMode(): ThemeMode {
   return readStoredThemeMode() ?? rendererConfig.defaultThemeMode;
 }
 
-/**
- * Document content locale after loading JSON.
- * Keeps current preference when supported; otherwise system, then doc default.
- */
-export function resolveDocumentLocale(
-  doc: AirpDocument,
-  currentPreference: string
-): string {
-  const docLocales = doc.i18n.locales;
-  const inDoc = matchLocaleInList(currentPreference, docLocales);
-  if (inDoc) {
-    return inDoc;
-  }
-  const fromSystem = matchLocaleInList(detectSystemLocale(), docLocales);
-  if (fromSystem) {
-    return fromSystem;
-  }
-  return doc.i18n.defaultLocale;
-}
-
 /** Best renderer UI locale for toolbar strings given active document locale. */
 export function resolveRendererUiLocale(docLocale: string): string {
   return (
     matchLocaleInList(docLocale, rendererConfig.locales) ??
-    resolveRendererLocale()
+    resolveUiLocale()
   );
 }

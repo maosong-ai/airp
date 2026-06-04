@@ -5,7 +5,14 @@ import { THEME_PRESETS } from "@/lib/themes";
 export type RendererUiKey =
   | "appTitle"
   | "uploadJson"
+  | "reuploadJson"
+  | "exportMenu"
   | "exportHtml"
+  | "exportHtmlAll"
+  | "exportMarkdown"
+  | "exportFailed"
+  | "dropHint"
+  | "dropActive"
   | "themeMenu"
   | "themePresetSection"
   | "themeModeSection"
@@ -22,7 +29,14 @@ const UI: Record<string, UiTable> = {
   "ja-JP": {
     appTitle: "AIRP Renderer",
     uploadJson: "JSON をアップロード",
-    exportHtml: "HTML をエクスポート",
+    reuploadJson: "JSON を再アップロード",
+    exportMenu: "エクスポート",
+    exportHtml: "HTML",
+    exportHtmlAll: "すべての言語",
+    exportMarkdown: "Markdown",
+    exportFailed: "エクスポートに失敗しました",
+    dropHint: ".airp.json をここにドラッグ",
+    dropActive: "離してアップロード",
     themeMenu: "テーマ",
     themePresetSection: "スキン",
     themeModeSection: "表示モード",
@@ -37,7 +51,14 @@ const UI: Record<string, UiTable> = {
   "zh-CN": {
     appTitle: "AIRP 渲染器",
     uploadJson: "上传 JSON",
-    exportHtml: "导出 HTML",
+    reuploadJson: "重新上传 JSON",
+    exportMenu: "导出",
+    exportHtml: "HTML",
+    exportHtmlAll: "所有语言",
+    exportMarkdown: "Markdown",
+    exportFailed: "导出失败",
+    dropHint: "拖拽 .airp.json 到此处",
+    dropActive: "释放以上传",
     themeMenu: "主题",
     themePresetSection: "皮肤",
     themeModeSection: "明暗",
@@ -51,7 +72,14 @@ const UI: Record<string, UiTable> = {
   en: {
     appTitle: "AIRP Renderer",
     uploadJson: "Upload JSON",
-    exportHtml: "Export HTML",
+    reuploadJson: "Re-upload JSON",
+    exportMenu: "Export",
+    exportHtml: "HTML",
+    exportHtmlAll: "All Languages",
+    exportMarkdown: "Markdown",
+    exportFailed: "Export failed",
+    dropHint: "Drop .airp.json here",
+    dropActive: "Release to upload",
     themeMenu: "Theme",
     themePresetSection: "Skin",
     themeModeSection: "Appearance",
