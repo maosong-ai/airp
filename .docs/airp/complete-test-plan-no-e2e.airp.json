@@ -1,0 +1,834 @@
+{
+  "schemaVersion": "1.0.0",
+  "meta": {
+    "title": "完整测试方案（不做端到端测试）",
+    "subtitle": "阶段一仅落地 Vitest 单元+集成测试，其他测试类型暂缓",
+    "kind": "plan-review",
+    "createdAt": "2026-06-04T09:00:00.000Z",
+    "updatedAt": "2026-06-04T10:30:00.000Z",
+    "authors": ["GitHub Copilot"],
+    "tags": ["test-plan", "quality", "non-e2e", "risk-based", "vitest", "phase-1"],
+    "sourceRefs": [
+      {
+        "type": "path",
+        "value": "skills/airp/SKILL.md"
+      },
+      {
+        "type": "path",
+        "value": "skills/airp/schemas/airp-document.schema.json"
+      },
+      {
+        "type": "path",
+        "value": "skills/airp/references/block-selection.md"
+      }
+    ]
+  },
+  "i18n": {
+    "defaultLocale": "zh-CN",
+    "locales": ["zh-CN"]
+  },
+  "blocks": [
+    {
+      "type": "hero",
+      "metrics": [
+        {
+          "title": "阶段一覆盖层级",
+          "value": 2,
+          "description": "仅单元测试与集成测试"
+        },
+        {
+          "title": "暂不实施",
+          "value": 3,
+          "description": "契约测试、可用性/可访问性、性能测试"
+        },
+        {
+          "title": "质量门禁",
+          "value": 3,
+          "description": "提交前单元门禁 + 合并前集成门禁 + 发布前冒烟回归"
+        },
+        {
+          "title": "目标",
+          "value": "先稳核心链路",
+          "description": "先把解析与渲染主路径测透，再扩展到其他测试类型"
+        }
+      ],
+      "badges": [
+        {
+          "label": "测试方案",
+          "tone": "accent"
+        },
+        {
+          "label": "排除 E2E",
+          "status": "warning"
+        }
+      ]
+    },
+    {
+      "type": "lead",
+      "text": "本方案面向非测试专业背景的研发团队，采用专业测试视角把阶段一范围收敛为 **Vitest 单元+集成测试**。目标是优先保障 AIRP 文档解析、国际化选择、Markdown/HTML 渲染与 CLI 参数校验四条核心链路的正确性与边界稳定性。"
+    },
+    {
+      "type": "section",
+      "id": "scope",
+      "title": "范围与原则",
+      "children": [
+        {
+          "type": "lead",
+          "text": "阶段一遵循风险优先：先覆盖高变更且故障成本最高的纯函数与渲染编排路径，采用可重复、可并行、可快速反馈的 Vitest 测试策略。"
+        },
+        {
+          "type": "constraint",
+          "rule": "本计划不包含浏览器到后端再到外部系统的端到端自动化测试。",
+          "scope": "测试范围",
+          "nonNegotiable": true
+        },
+        {
+          "type": "constraint",
+          "rule": "阶段一仅实施 Vitest 单元测试与 Vitest 集成测试；契约/可访问性/性能测试统一标记为后续阶段，不作为当前发布阻断项。",
+          "scope": "阶段边界",
+          "nonNegotiable": true
+        },
+        {
+          "type": "assumption",
+          "statement": "当前项目核心风险集中在 JSON 解析、i18n 选择、块级渲染与 CLI 参数校验，适合用函数级和进程级测试拆解验证。",
+          "validated": true
+        },
+        {
+          "type": "assumption",
+          "statement": "CLI 命令均可在 CI 以临时文件方式执行，不依赖真实浏览器交互或外部服务。",
+          "validated": true
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "strategy",
+      "title": "测试策略总览",
+      "children": [
+        {
+          "type": "statusBoard",
+          "items": [
+            {
+              "label": "单元测试",
+              "status": "in_progress",
+              "detail": "覆盖解析、i18n、TOC、文件名生成、块级 Markdown 发射等纯函数与低副作用函数"
+            },
+            {
+              "label": "集成测试",
+              "status": "in_progress",
+              "detail": "覆盖 loadDocument -> renderDocument -> backend -> artifact/文件输出 的命令级链路"
+            },
+            {
+              "label": "契约测试",
+              "status": "skipped",
+              "detail": "阶段一暂不实施，后续再接入 Pact 或 schema diff"
+            },
+            {
+              "label": "可用性与可访问性",
+              "status": "skipped",
+              "detail": "阶段一暂不实施，后续再接入 Testing Library + Axe"
+            },
+            {
+              "label": "性能与稳定性",
+              "status": "skipped",
+              "detail": "阶段一暂不实施，后续再接入 bench/k6 的性能基线"
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "caption": "测试层级与入口",
+          "columns": [
+            {
+              "key": "layer",
+              "label": "层级"
+            },
+            {
+              "key": "goal",
+              "label": "目标"
+            },
+            {
+              "key": "trigger",
+              "label": "触发时机"
+            },
+            {
+              "key": "owner",
+              "label": "责任角色"
+            }
+          ],
+          "rows": [
+            {
+              "layer": "单元测试",
+              "goal": "验证函数级业务规则、输入分区、边界值与异常分支",
+              "trigger": "每次提交",
+              "owner": "研发"
+            },
+            {
+              "layer": "集成测试",
+              "goal": "验证 CLI/渲染管线跨模块协作与文件输出结果",
+              "trigger": "合并请求",
+              "owner": "研发+测试"
+            },
+            {
+              "layer": "契约测试",
+              "goal": "阶段一暂不实施",
+              "trigger": "后续阶段",
+              "owner": "后续指定"
+            },
+            {
+              "layer": "可用性/可访问性",
+              "goal": "阶段一暂不实施",
+              "trigger": "后续阶段",
+              "owner": "后续指定"
+            },
+            {
+              "layer": "性能测试",
+              "goal": "阶段一暂不实施",
+              "trigger": "后续阶段",
+              "owner": "后续指定"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "vitest-scope",
+      "title": "Vitest 阶段一范围（单元+集成）",
+      "children": [
+        {
+          "type": "lead",
+          "text": "本节给出可直接落地的测试对象清单、测试观点与边界。每个对象至少覆盖：正常路径、边界输入、错误输入、回归场景。"
+        },
+        {
+          "type": "table",
+          "caption": "单元测试范围（函数/模块级）",
+          "columns": [
+            {
+              "key": "target",
+              "label": "测试对象"
+            },
+            {
+              "key": "scope",
+              "label": "范围（接口/函数）"
+            },
+            {
+              "key": "viewpoint",
+              "label": "测试观点"
+            },
+            {
+              "key": "method",
+              "label": "方法"
+            },
+            {
+              "key": "boundary",
+              "label": "关键边界"
+            }
+          ],
+          "rows": [
+            {
+              "target": "AIRP 解析与 Schema",
+              "scope": "parseAirpDocument / airpDocumentSchema / blockSchema",
+              "viewpoint": "输入合法性与错误可解释性",
+              "method": "等价类 + 边界值 + 非法字段注入 + 缺字段",
+              "boundary": "schemaVersion、blocks 最小长度、枚举值、递归 block 结构"
+            },
+            {
+              "target": "国际化选择与回退",
+              "scope": "normalizeLocale / pickLocale / resolveLocalized / resolveRichText",
+              "viewpoint": "locale 规范化与 fallback 稳定性",
+              "method": "参数化测试 + 回退链断言",
+              "boundary": "preferred 缺失、区域码大小写、locale 不存在、空对象"
+            },
+            {
+              "target": "目录与锚点生成",
+              "scope": "collectToc / slugify",
+              "viewpoint": "结构遍历正确性与可预测 ID",
+              "method": "树形夹具 + 递归深度场景",
+              "boundary": "section/group/tabs/collapsible/appendix 混合嵌套"
+            },
+            {
+              "target": "Markdown 生成核心",
+              "scope": "emitBlock / emitBlocks / emitDocument",
+              "viewpoint": "块类型映射正确性与 Markdown 语义稳定",
+              "method": "golden 文本断言 + 最小快照",
+              "boundary": "table 转义、comparison bullet 特判、heading level 截断"
+            },
+            {
+              "target": "导出文件名与安全处理",
+              "scope": "artifactFilename / escapeInlineScript",
+              "viewpoint": "可用文件名与脚本注入防护",
+              "method": "字符集 fuzz 样本 + 特殊字符断言",
+              "boundary": "中英文混排、超长标题、空标题、</script> 片段"
+            },
+            {
+              "target": "渲染编排",
+              "scope": "registerBackend / renderDocument",
+              "viewpoint": "后端注册机制与异常路径",
+              "method": "mock backend + 异常断言",
+              "boundary": "未注册 target、重复注册覆盖、render 抛错透传"
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "caption": "集成测试范围（命令/流程级）",
+          "columns": [
+            {
+              "key": "flow",
+              "label": "测试流程"
+            },
+            {
+              "key": "entry",
+              "label": "入口（命令行）"
+            },
+            {
+              "key": "assertion",
+              "label": "核心断言"
+            },
+            {
+              "key": "negative",
+              "label": "反向场景"
+            }
+          ],
+          "rows": [
+            {
+              "flow": "文档校验流程",
+              "entry": "pnpm validate <input.airp.json>",
+              "assertion": "合法文档 exit code=0 且输出 OK",
+              "negative": "非法 schema/字段时 exit code=1 且报错可定位"
+            },
+            {
+              "flow": "Markdown 导出流程",
+              "entry": "pnpm render:markdown <input> --locale <code> -o <out>",
+              "assertion": "生成 .md 文件，标题/分节/表格内容与 locale 对应",
+              "negative": "缺失 --locale 或 locale 非法时 fail-closed"
+            },
+            {
+              "flow": "HTML 导出流程",
+              "entry": "pnpm render:html <input> --locale-mode <all|single> [--single-locale]",
+              "assertion": "生成自包含 HTML，含样式与脚本内联，localeMode 行为正确",
+              "negative": "locale-mode 非法、single 但缺 locale、all 误传 single-locale"
+            },
+            {
+              "flow": "i18n 单语言/多语言参数-输出匹配",
+              "entry": "render:html 与 render:markdown 参数组合",
+              "assertion": "导出参数、文档 i18n 配置与输出文件内容三者一致",
+              "negative": "参数与文档 locale 集不匹配时必须 fail-closed"
+            },
+            {
+              "flow": "Skill CLI 编译产物验证（compile-first）",
+              "entry": "node scripts/build-validate-airp.mjs && node scripts/build-render-markdown.mjs && node scripts/build-render-html.mjs",
+              "assertion": "成功生成 skills/*/scripts/*.mjs，并可由 node 直接执行完成 validate/render",
+              "negative": "esbuild 缺失、构建失败、bundle 超限、产物缺失时必须失败并输出可诊断错误"
+            },
+            {
+              "flow": "渲染管线流程",
+              "entry": "loadDocumentFromPath -> renderDocument(markdown/html)",
+              "assertion": "artifact 的 format/mimeType/filename/body 一致",
+              "negative": "未注册后端或 locale 不在文档范围时明确报错"
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "caption": "i18n 单/多语言与导出参数匹配矩阵（阶段一必须覆盖）",
+          "columns": [
+            {
+              "key": "docI18n",
+              "label": "文档 i18n 形态"
+            },
+            {
+              "key": "command",
+              "label": "导出命令与参数"
+            },
+            {
+              "key": "expectation",
+              "label": "预期输出匹配"
+            },
+            {
+              "key": "testView",
+              "label": "测试观点"
+            }
+          ],
+          "rows": [
+            {
+              "docI18n": "单语言（locales=[zh-CN], defaultLocale=zh-CN）",
+              "command": "render:markdown --locale zh-CN",
+              "expectation": "输出 md 内容为 zh-CN；标题、副标题、表格单元格语言一致",
+              "testView": "正向主路径"
+            },
+            {
+              "docI18n": "单语言（locales=[zh-CN]）",
+              "command": "render:markdown --locale en",
+              "expectation": "exit code=1；提示 locale 不在 document locales",
+              "testView": "参数越界 fail-closed"
+            },
+            {
+              "docI18n": "单语言（locales=[zh-CN]）",
+              "command": "render:html --locale-mode all",
+              "expectation": "输出 html 仅一个 data-airp-locale 面板；chrome localeMode=all 但 locales 只有一个",
+              "testView": "语义一致性（模式与数据规模）"
+            },
+            {
+              "docI18n": "多语言（locales=[zh-CN,en,ja], defaultLocale=zh-CN）",
+              "command": "render:html --locale-mode all",
+              "expectation": "输出 html 含 3 个 locale 面板；初始展示 defaultLocale",
+              "testView": "多语言全量导出"
+            },
+            {
+              "docI18n": "多语言（locales=[zh-CN,en,ja]）",
+              "command": "render:html --locale-mode single --single-locale en",
+              "expectation": "输出 html 仅 en 面板；不应出现其他 locale 面板",
+              "testView": "单语言裁剪导出"
+            },
+            {
+              "docI18n": "多语言（locales=[zh-CN,en,ja]）",
+              "command": "render:html --locale-mode single（缺失 --single-locale）",
+              "expectation": "exit code=1；错误信息明确缺参数",
+              "testView": "必填参数校验"
+            },
+            {
+              "docI18n": "多语言（locales=[zh-CN,en,ja]）",
+              "command": "render:html --locale-mode all --single-locale en",
+              "expectation": "exit code=1；错误信息明确参数组合非法",
+              "testView": "参数互斥校验"
+            },
+            {
+              "docI18n": "多语言（locales=[zh-CN,en,ja]）",
+              "command": "render:html --locale-mode single --single-locale fr",
+              "expectation": "exit code=1；错误信息列出允许 locales",
+              "testView": "值域校验"
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "caption": "极限边界测试清单（阶段一）",
+          "columns": [
+            {
+              "key": "case",
+              "label": "边界场景"
+            },
+            {
+              "key": "entry",
+              "label": "入口"
+            },
+            {
+              "key": "expected",
+              "label": "预期"
+            }
+          ],
+          "rows": [
+            {
+              "case": "文档仅 1 个最小 block（最小合法输入）",
+              "entry": "validate + render:markdown",
+              "expected": "校验通过并可导出，不因字段最小化而崩溃"
+            },
+            {
+              "case": "标题超长与中英文混合特殊字符",
+              "entry": "artifactFilename",
+              "expected": "文件名截断且安全，扩展名正确"
+            },
+            {
+              "case": "localized 字段缺当前 locale，仅有 defaultLocale",
+              "entry": "resolveLocalized / render:markdown",
+              "expected": "按回退链返回 defaultLocale，不返回空字符串"
+            },
+            {
+              "case": "localized 字段为空对象或缺键",
+              "entry": "resolveLocalized",
+              "expected": "返回空字符串且不抛异常"
+            },
+            {
+              "case": "render:markdown 缺失 --locale",
+              "entry": "CLI",
+              "expected": "exit code=1，并输出 usage 与错误原因"
+            },
+            {
+              "case": "render:html locale-mode 非法值",
+              "entry": "CLI",
+              "expected": "exit code=1，错误信息包含允许值 all|single"
+            },
+            {
+              "case": "renderDocument 调用未注册 backend",
+              "entry": "pipeline",
+              "expected": "抛出 No render backend registered 错误"
+            },
+            {
+              "case": "skill CLI 编译产物不存在或未更新",
+              "entry": "build-validate-airp/build-render-markdown/build-render-html",
+              "expected": "集成测试直接失败，并提示需先执行构建"
+            },
+            {
+              "case": "render-markdown.mjs 体积超阈值",
+              "entry": "build-render-markdown.mjs",
+              "expected": "构建失败并输出 exceeds KB limit 错误"
+            },
+            {
+              "case": "HTML 导出脚本内容含 </script>",
+              "entry": "escapeInlineScript + renderStaticHtml",
+              "expected": "脚本被转义，不提前闭合 script 标签"
+            }
+          ]
+        },
+        {
+          "type": "keyValueList",
+          "items": [
+            {
+              "key": "测试观点（专业）",
+              "value": "输入分区、边界值、状态转换、错误处理、回归保护并重；优先验证 fail-closed 行为与错误信息可诊断性。"
+            },
+            {
+              "key": "夹具策略",
+              "value": "建立最小可读 fixture（最小合法文档、跨 locale 文档、非法文档），并对复杂 block 用组合夹具复用。"
+            },
+            {
+              "key": "断言策略",
+              "value": "文本输出采用语义断言优先（关键片段/结构），仅对稳定片段使用快照，避免脆弱全量快照。"
+            },
+            {
+              "key": "环境策略",
+              "value": "单元测试默认 Node 环境；涉及浏览器 API 的路径采用 mock 或隔离，不引入 E2E。"
+            },
+            {
+              "key": "临时目录策略（跨平台）",
+              "value": "测试输入副本与导出产物统一写入系统临时目录：使用 Node os.tmpdir() + fs.mkdtemp() 创建独立工作目录，路径拼接仅用 path.join/path.resolve，并在 afterEach/afterAll 用 fs.rm({ recursive: true, force: true }) 清理。"
+            },
+            {
+              "key": "Vitest 能力说明",
+              "value": "Vitest 可直接运行上述临时目录策略（基于 Node 标准库）；Vitest 不内置专用临时目录 API，但完全支持通过测试钩子封装跨平台临时文件生命周期。"
+            },
+            {
+              "key": "编译优先策略",
+              "value": "Skill CLI 集成测试以编译产物为准：必须先构建 skills/airp/scripts/validate-airp.mjs、skills/airp-markdown/scripts/render-markdown.mjs、skills/airp-html/scripts/render-html.mjs，再用 node 执行这些 .mjs 验证真实可分发行为。"
+            },
+            {
+              "key": "匹配性策略",
+              "value": "任何导出参数都必须和文档 i18n 配置、最终导出文件内容建立一一对应断言；不匹配一律 fail-closed。"
+            },
+            {
+              "key": "暂不实施",
+              "value": "Contract、A11y/UI 组件交互、性能压测均不纳入阶段一门禁，仅保留计划占位。"
+            }
+          ],
+          "layout": "stacked"
+        },
+        {
+          "type": "checklist",
+          "title": "阶段一边界与排除项",
+          "items": [
+            {
+              "label": "不做跨系统 E2E（浏览器-后端-外部依赖全链路）",
+              "status": "done"
+            },
+            {
+              "label": "不做 Pact/OpenAPI 契约阻断",
+              "status": "skipped",
+              "note": "后续阶段再接入"
+            },
+            {
+              "label": "不做可访问性自动扫描（Axe）",
+              "status": "skipped",
+              "note": "后续阶段再接入"
+            },
+            {
+              "label": "不做 k6/JMeter 压测",
+              "status": "skipped",
+              "note": "后续阶段再接入"
+            },
+            {
+              "label": "测试运行时文件不落仓库目录，统一写系统临时目录并自动清理",
+              "status": "done"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "requirement-trace",
+      "title": "需求追踪与覆盖准则",
+      "children": [
+        {
+          "type": "requirementTrace",
+          "items": [
+            {
+              "reqId": "REQ-01",
+              "summary": "核心业务规则计算正确",
+              "status": "in_progress",
+              "evidence": "parseAirpDocument、i18n 回退、markdown 发射与文件名规则已纳入单元范围",
+              "gap": "复杂 block 组合的参数化夹具仍需补齐"
+            },
+            {
+              "reqId": "REQ-02",
+              "summary": "渲染链路集成稳定",
+              "status": "in_progress",
+              "evidence": "validate/render-markdown/render-html 命令行路径纳入集成测试，且测试产物写入系统临时目录",
+              "gap": "需补充 Windows 下文件句柄占用场景的清理重试策略"
+            },
+            {
+              "reqId": "REQ-03",
+              "summary": "契约兼容性自动阻断",
+              "status": "skipped",
+              "evidence": "阶段一不实施",
+              "gap": "后续阶段引入 Pact 或 schema diff"
+            },
+            {
+              "reqId": "REQ-04",
+              "summary": "可访问性与性能基线",
+              "status": "skipped",
+              "evidence": "阶段一不实施",
+              "gap": "后续阶段再确定基线阈值与工具链"
+            }
+          ]
+        },
+        {
+          "type": "checklist",
+          "title": "覆盖达标检查",
+          "items": [
+            {
+              "label": "高风险模块（schema/i18n/emit/pipeline）单元测试行覆盖率 >= 85%",
+              "status": "in_progress"
+            },
+            {
+              "label": "CLI 集成流程（validate/render-markdown/render-html）具备成功与失败双向用例",
+              "status": "in_progress"
+            },
+            {
+              "label": "i18n 单语言/多语言 × 导出参数 × 输出文件内容匹配矩阵已覆盖",
+              "status": "in_progress"
+            },
+            {
+              "label": "集成测试输出目录使用 os.tmpdir + mkdtemp，且用例结束自动清理",
+              "status": "in_progress"
+            },
+            {
+              "label": "skill CLI 集成测试从 build 开始，且使用编译后的 .mjs 产物执行",
+              "status": "in_progress"
+            },
+            {
+              "label": "关键跨模块流程（load -> render -> artifact）具备集成测试",
+              "status": "in_progress"
+            },
+            {
+              "label": "契约、可访问性、性能测试已明确标注为阶段二，不阻断当前发布",
+              "status": "done"
+            },
+            {
+              "label": "每个 Sev-1 历史缺陷至少有一个单元或集成回归用例",
+              "status": "in_progress"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "suite-design",
+      "title": "测试套件设计",
+      "children": [
+        {
+          "type": "table",
+          "caption": "套件与样例场景",
+          "columns": [
+            {
+              "key": "suite",
+              "label": "套件"
+            },
+            {
+              "key": "scope",
+              "label": "覆盖范围"
+            },
+            {
+              "key": "caseType",
+              "label": "样例类型"
+            },
+            {
+              "key": "tooling",
+              "label": "建议工具"
+            }
+          ],
+          "rows": [
+            {
+              "suite": "Domain Unit",
+              "scope": "parseAirpDocument、i18n、TOC、artifactFilename、emitBlock/emitDocument",
+              "caseType": "正常值/边界值/异常值/参数化组合",
+              "tooling": "Vitest + 表驱动用例 + 语义断言"
+            },
+            {
+              "suite": "Integration CLI/Pipeline",
+              "scope": "validate-airp、render-markdown、render-html、renderDocument backend 编排",
+              "caseType": "先编译后执行、命令成功路径、参数错误、locale 约束、输出文件校验",
+              "tooling": "Vitest + 子进程执行 + build 脚本 + 编译后 mjs 产物 + os.tmpdir/mkdtemp + afterEach 清理"
+            },
+            {
+              "suite": "Contract",
+              "scope": "消费者与提供者接口",
+              "caseType": "阶段一暂不实施",
+              "tooling": "后续阶段"
+            },
+            {
+              "suite": "UI Component",
+              "scope": "关键页面组件与状态切换",
+              "caseType": "阶段一暂不实施",
+              "tooling": "后续阶段"
+            },
+            {
+              "suite": "Performance",
+              "scope": "渲染性能与资源占用",
+              "caseType": "阶段一暂不实施",
+              "tooling": "后续阶段"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "quality-gates",
+      "title": "质量门禁与发布准入",
+      "children": [
+        {
+          "type": "testResult",
+          "suites": [
+            {
+              "name": "Commit Gate - Unit",
+              "passed": 120,
+              "failed": 0,
+              "skipped": 5,
+              "notes": "目标：提交阶段快速反馈，失败即阻断"
+            },
+            {
+              "name": "Merge Gate - Integration",
+              "passed": 60,
+              "failed": 0,
+              "skipped": 3,
+              "notes": "目标：合并前验证 CLI 与渲染管线协作"
+            },
+            {
+              "name": "Deferred - Contract/A11y/Performance",
+              "passed": 0,
+              "failed": 0,
+              "skipped": 30,
+              "notes": "阶段一不执行，仅保留占位"
+            },
+            {
+              "name": "Release Gate - Smoke Regression",
+              "passed": 15,
+              "failed": 0,
+              "skipped": 0,
+              "notes": "目标：发布前复跑核心单元+集成用例，确保无回归"
+            }
+          ]
+        },
+        {
+          "type": "keyValueList",
+          "items": [
+            {
+              "key": "阻断策略",
+              "value": "单元或集成门禁 failed > 0 时禁止合并；阶段一允许 Contract/A11y/Performance 为 skipped"
+            },
+            {
+              "key": "缺陷分级响应",
+              "value": "Sev-1 当天修复并补回归；Sev-2 两个迭代内清零"
+            },
+            {
+              "key": "回归基线",
+              "value": "每次发布前对最近 3 个版本高频缺陷集执行单元+集成专项回归"
+            },
+            {
+              "key": "质量看板",
+              "value": "按模块展示单元/集成通过率、失败根因、慢测试清单"
+            }
+          ],
+          "layout": "stacked"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "timeline",
+      "title": "实施里程碑",
+      "children": [
+        {
+          "type": "timeline",
+          "events": [
+            {
+              "date": "第 1 周",
+              "title": "测试资产盘点与分层建模",
+              "description": "完成需求到测试层级映射，识别高风险模块与薄弱覆盖区",
+              "status": "done"
+            },
+            {
+              "date": "第 2-3 周",
+              "title": "单元与集成基线补齐",
+              "description": "补齐 parse/i18n/emit/pipeline 与 CLI 核心用例并接入提交/合并门禁",
+              "status": "in_progress"
+            },
+            {
+              "date": "第 4 周",
+              "title": "阶段二准备（不执行）",
+              "description": "仅评估契约/可访问性测试工具链与成本，不纳入阶段一交付",
+              "status": "skipped"
+            },
+            {
+              "date": "第 5 周",
+              "title": "阶段二准备（不执行）",
+              "description": "仅评估性能基线指标，不执行压测门禁",
+              "status": "skipped"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "risks",
+      "title": "风险与缓解",
+      "children": [
+        {
+          "type": "risk",
+          "title": "暂不做契约测试导致兼容问题暴露滞后",
+          "severity": "high",
+          "likelihood": "possible",
+          "description": "阶段一未做契约自动阻断，接口字段破坏性变更可能在集成阶段后才暴露。",
+          "mitigation": "在集成测试中补充高风险字段断言，并在阶段二优先引入契约测试。",
+          "owner": "测试负责人",
+          "status": "open"
+        },
+        {
+          "type": "risk",
+          "title": "快照与文本断言过度绑定实现细节",
+          "severity": "medium",
+          "likelihood": "likely",
+          "description": "若大量使用全量快照，轻微格式变更会触发噪声失败，影响维护效率。",
+          "mitigation": "采用语义断言优先、快照最小化原则，仅固定关键稳定片段。",
+          "owner": "研发负责人",
+          "status": "open"
+        },
+        {
+          "type": "risk",
+          "title": "CLI 集成测试执行时间上升影响反馈速度",
+          "severity": "medium",
+          "likelihood": "possible",
+          "description": "若所有集成用例都走真实文件与子进程，提交反馈可能变慢。",
+          "mitigation": "提交前仅跑高价值单元子集，集成测试放在合并门禁并启用并行执行。",
+          "owner": "研发效能负责人",
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "summary",
+      "title": "结论",
+      "children": [
+        {
+          "type": "lead",
+          "text": "阶段一方案已收敛为可执行的 Vitest 单元+集成测试：范围清晰、对象明确、边界可验证、门禁可落地。其余测试类型已显式标注为后续阶段，避免当前迭代目标失焦。"
+        }
+      ]
+    }
+  ]
+}

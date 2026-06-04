@@ -1,0 +1,645 @@
+{
+  "schemaVersion": "1.0.0",
+  "meta": {
+    "title": "AIRP 项目演进为 Workspace 详细方案",
+    "subtitle": "以低风险分阶段迁移到仓库级工作区治理（构建、测试、发布、技能打包统一入口）",
+    "kind": "plan-review",
+    "createdAt": "2026-06-04T11:30:00.000Z",
+    "updatedAt": "2026-06-04T11:30:00.000Z",
+    "authors": ["GitHub Copilot"],
+    "tags": ["workspace", "monorepo", "pnpm", "vitest", "migration"],
+    "sourceRefs": [
+      {
+        "type": "path",
+        "value": "renderer/package.json"
+      },
+      {
+        "type": "path",
+        "value": "scripts/package-skills.mjs"
+      },
+      {
+        "type": "path",
+        "value": ".docs/airp/complete-test-plan-no-e2e.airp.json"
+      }
+    ]
+  },
+  "i18n": {
+    "defaultLocale": "zh-CN",
+    "locales": ["zh-CN"]
+  },
+  "blocks": [
+    {
+      "type": "hero",
+      "metrics": [
+        {
+          "title": "演进阶段",
+          "value": 4,
+          "description": "基线盘点、最小工作区、测试与CI收敛、发布治理"
+        },
+        {
+          "title": "目标结果",
+          "value": "单入口",
+          "description": "根目录统一安装/测试/构建/打包，不破坏现有 renderer 体验"
+        },
+        {
+          "title": "迁移策略",
+          "value": "可回滚",
+          "description": "每阶段可独立验收，失败可回退到上一稳定状态"
+        },
+        {
+          "title": "优先级",
+          "value": "测试先行",
+          "description": "先建立 compile-first 集成测试再扩大工程重构范围"
+        }
+      ],
+      "badges": [
+        {
+          "label": "workspace 演进",
+          "tone": "accent"
+        },
+        {
+          "label": "分阶段",
+          "status": "in_progress"
+        }
+      ]
+    },
+    {
+      "type": "lead",
+      "text": "本方案目标是把当前以 renderer 为中心、根目录附加 scripts/skills 的结构，演进为**仓库级 workspace**：统一依赖管理、统一测试入口、统一构建发布入口，并保持现有 skill CLI 产物链路可持续。"
+    },
+    {
+      "type": "section",
+      "id": "current-state",
+      "title": "现状评估与痛点",
+      "children": [
+        {
+          "type": "statusBoard",
+          "items": [
+            {
+              "label": "包管理边界",
+              "status": "warning",
+              "detail": "仅 renderer 有 package.json，根目录 scripts 需要跨目录调用，责任边界模糊"
+            },
+            {
+              "label": "测试入口",
+              "status": "warning",
+              "detail": "单元测试自然落在 renderer，但仓库级 compile-first 集成测试缺统一入口"
+            },
+            {
+              "label": "发布链路",
+              "status": "in_progress",
+              "detail": "已有 package-skills.mjs 串联安装、构建、vendor、CLI 打包，具备收敛基础"
+            },
+            {
+              "label": "风险",
+              "status": "warning",
+              "detail": "根目录不是 Node 项目时，工具版本锁定与 CI 一致性较弱"
+            }
+          ]
+        },
+        {
+          "type": "checklist",
+          "title": "现状确认",
+          "items": [
+            {
+              "label": "renderer 是当前唯一 Node 包",
+              "status": "done"
+            },
+            {
+              "label": "skills CLI 由根目录 scripts 构建产出",
+              "status": "done"
+            },
+            {
+              "label": "需要仓库级测试职责（不仅 renderer 内）",
+              "status": "done"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "target-architecture",
+      "title": "目标架构（Workspace 形态）",
+      "children": [
+        {
+          "type": "table",
+          "caption": "目标分层与职责",
+          "columns": [
+            {
+              "key": "layer",
+              "label": "层"
+            },
+            {
+              "key": "responsibility",
+              "label": "职责"
+            },
+            {
+              "key": "entry",
+              "label": "统一入口"
+            },
+            {
+              "key": "notes",
+              "label": "说明"
+            }
+          ],
+          "rows": [
+            {
+              "layer": "根目录 workspace",
+              "responsibility": "统一脚本编排、锁定工具版本、CI 与发布入口",
+              "entry": "pnpm -w <cmd>",
+              "notes": "新增根 package.json 与 workspace 清单"
+            },
+            {
+              "layer": "renderer 包",
+              "responsibility": "应用源码构建、单元测试、渲染核心逻辑",
+              "entry": "pnpm -C renderer <cmd>",
+              "notes": "保留现有开发体验"
+            },
+            {
+              "layer": "tests 包",
+              "responsibility": "仓库级集成测试（compile-first、产物验证）",
+              "entry": "pnpm -C tests <cmd>",
+              "notes": "隔离测试依赖，避免污染业务包"
+            },
+            {
+              "layer": "skills 产物层",
+              "responsibility": "可分发的 validate/render cli 与 dashboard 资源",
+              "entry": "node scripts/package-skills.mjs",
+              "notes": "由根脚本统一生成与验收"
+            }
+          ]
+        },
+        {
+          "type": "constraint",
+          "rule": "workspace 演进必须保持既有命令可用（renderer 内开发命令与现有 skill 打包命令不被破坏）。",
+          "scope": "兼容性",
+          "nonNegotiable": true
+        },
+        {
+          "type": "fileTree",
+          "caption": "目标目录结构（workspace 演进后）",
+          "root": {
+            "name": "airp",
+            "children": [
+              {
+                "name": "package.json",
+                "annotation": "根工作区入口：统一 scripts 与工具版本"
+              },
+              {
+                "name": "pnpm-workspace.yaml",
+                "annotation": "声明 workspace 包范围"
+              },
+              {
+                "name": "pnpm-lock.yaml"
+              },
+              {
+                "name": ".docs",
+                "children": [
+                  {
+                    "name": "airp"
+                  }
+                ]
+              },
+              {
+                "name": "renderer",
+                "annotation": "应用与渲染核心包",
+                "children": [
+                  {
+                    "name": "package.json"
+                  },
+                  {
+                    "name": "src"
+                  },
+                  {
+                    "name": "scripts"
+                  },
+                  {
+                    "name": "public"
+                  }
+                ]
+              },
+              {
+                "name": "tests",
+                "annotation": "仓库级集成测试包（compile-first）",
+                "children": [
+                  {
+                    "name": "package.json"
+                  },
+                  {
+                    "name": "vitest.config.ts"
+                  },
+                  {
+                    "name": "src",
+                    "children": [
+                      {
+                        "name": "integration"
+                      },
+                      {
+                        "name": "helpers"
+                      },
+                      {
+                        "name": "fixtures"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "scripts",
+                "annotation": "仓库编排脚本",
+                "children": [
+                  {
+                    "name": "package-skills.mjs"
+                  },
+                  {
+                    "name": "build-validate-airp.mjs"
+                  },
+                  {
+                    "name": "build-render-html.mjs"
+                  },
+                  {
+                    "name": "build-render-markdown.mjs"
+                  },
+                  {
+                    "name": "vendor-airp-assets.mjs"
+                  }
+                ]
+              },
+              {
+                "name": "skills",
+                "annotation": "可分发 skill 与编译产物",
+                "children": [
+                  {
+                    "name": "airp"
+                  },
+                  {
+                    "name": "airp-html"
+                  },
+                  {
+                    "name": "airp-markdown"
+                  },
+                  {
+                    "name": "airp-dashboard"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "type": "section",
+          "title": "根目录配置文件示例（pnpm-workspace.yaml）",
+          "children": [
+            {
+              "type": "code",
+              "language": "yaml",
+              "code": "packages:\n  - 'renderer'\n  - 'tests'\n\nshared-workspace-lockfile: true\nindependent-packages: []"
+            },
+            {
+              "type": "paragraph",
+              "text": "上述配置声明了两个 workspace 包：renderer 和 tests。shared-workspace-lockfile: true 确保全局使用统一的 pnpm-lock.yaml，保证依赖版本锁定的一致性。"
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "title": "根目录配置文件示例（package.json - 完整版）",
+          "children": [
+            {
+              "type": "code",
+              "language": "json",
+              "code": "{\n  \"name\": \"airp-workspace\",\n  \"version\": \"0.1.0\",\n  \"description\": \"AIRP (Agile Integrated Rendering Platform) workspace\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"engines\": {\n    \"node\": \">=20.0.0\",\n    \"pnpm\": \">=8.0.0\"\n  },\n  \"workspaces\": [\n    \"renderer\",\n    \"tests\"\n  ],\n  \"scripts\": {\n    \"preinstall\": \"npx only-allow pnpm\",\n    \"install\": \"pnpm -w install\",\n    \"build\": \"pnpm -w -r run build\",\n    \"build:renderer\": \"pnpm -C renderer build\",\n    \"build:skills\": \"node scripts/package-skills.mjs\",\n    \"dev\": \"pnpm -C renderer dev\",\n    \"preview\": \"pnpm -C renderer preview\",\n    \"test\": \"pnpm run test:all\",\n    \"test:unit\": \"pnpm -C renderer test\",\n    \"test:integration\": \"pnpm -C tests test -- --run\",\n    \"test:watch\": \"pnpm -C tests test -- --watch\",\n    \"test:contract\": \"pnpm -C tests test -- --grep contract\",\n    \"test:all\": \"pnpm -w run test:unit && pnpm -w run test:integration\",\n    \"lint\": \"pnpm -w -r run lint\",\n    \"type-check\": \"pnpm -w -r run type-check\",\n    \"package:skills\": \"pnpm -w run build:skills\",\n    \"validate:schema\": \"pnpm -C renderer run validate\",\n    \"render:html\": \"pnpm -C renderer run render:html\",\n    \"render:markdown\": \"pnpm -C renderer run render:markdown\"\n  },\n  \"devDependencies\": {\n    \"vitest\": \"^2.0.0\",\n    \"@vitest/ui\": \"^2.0.0\"\n  },\n  \"pnpm\": {\n    \"overrides\": {},\n    \"peerDependencyRules\": {\n      \"ignoreMissing\": [],\n      \"allowedVersions\": {}\n    }\n  }\n}"
+            },
+            {
+              "type": "paragraph",
+              "text": "根 package.json 作为统一编排入口。关键设计："
+            },
+            {
+              "type": "bulletList",
+              "items": [
+                "workspaces 声明 renderer 和 tests 两个工作包，pnpm 会自动管理它们的依赖",
+                "scripts 中 test:all（默认 test 别名）聚合单元测试 + 集成测试，支持 test:unit/test:integration/test:watch/test:contract 单独执行",
+                "build:skills 调用根脚本 scripts/package-skills.mjs，负责 renderer build + vendor + CLI 编译的完整链路",
+                "validate:schema、render:html、render:markdown 为直通命令，指向 renderer 的 CLI 脚本，便于在根目录快速测试",
+                "engines 限制 Node >= 20 与 pnpm >= 8，确保 ESM 与 workspace 特性可用",
+                "preinstall hook 用 only-allow 强制使用 pnpm，避免误用 npm/yarn"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "phase-plan",
+      "title": "分阶段实施计划",
+      "children": [
+        {
+          "type": "timeline",
+          "events": [
+            {
+              "date": "阶段 0（1-2 天）",
+              "title": "基线冻结与验收脚本固化",
+              "description": "记录现有构建/打包基线，形成可对比的产物清单与命令返回码基线",
+              "status": "in_progress"
+            },
+            {
+              "date": "阶段 1（2-3 天）",
+              "title": "最小 workspace 建立",
+              "description": "新增根 package.json 与 workspace 配置，保留 renderer 独立运行能力",
+              "status": "pending"
+            },
+            {
+              "date": "阶段 2（3-5 天）",
+              "title": "测试体系收敛",
+              "description": "将 renderer 单元测试与仓库级 compile-first 集成测试拆层并接入统一命令",
+              "status": "pending"
+            },
+            {
+              "date": "阶段 3（2-4 天）",
+              "title": "CI 与发布门禁收敛",
+              "description": "定义 PR 门禁、发布门禁、产物校验门禁并形成回滚预案",
+              "status": "pending"
+            }
+          ]
+        },
+        {
+          "type": "checklist",
+          "title": "阶段通过标准",
+          "items": [
+            {
+              "label": "阶段 1 后，根目录可执行统一 install/test/build 命令",
+              "status": "pending"
+            },
+            {
+              "label": "阶段 2 后，compile-first 集成测试可稳定复现",
+              "status": "pending"
+            },
+            {
+              "label": "阶段 3 后，CI 门禁与本地门禁一致",
+              "status": "pending"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "test-strategy",
+      "title": "测试策略（workspace 视角）",
+      "children": [
+        {
+          "type": "table",
+          "caption": "测试层与执行边界",
+          "columns": [
+            {
+              "key": "suite",
+              "label": "测试套件"
+            },
+            {
+              "key": "scope",
+              "label": "范围"
+            },
+            {
+              "key": "runner",
+              "label": "运行方式"
+            },
+            {
+              "key": "gate",
+              "label": "门禁"
+            }
+          ],
+          "rows": [
+            {
+              "suite": "Renderer Unit",
+              "scope": "schema/i18n/pipeline/emitter 纯函数",
+              "runner": "vitest（renderer 包内）",
+              "gate": "commit/pr"
+            },
+            {
+              "suite": "Repo Integration",
+              "scope": "validate/render:html/render:markdown CLI 命令 + 块类型合约验证 + 编译产物执行",
+              "runner": "vitest（repo-tests 包）+ 子进程执行",
+              "gate": "pr/release"
+            },
+            {
+              "suite": "Skill Artifact Verification",
+              "scope": "skills/*/scripts/*.mjs 可执行性、输出正确性、失败码一致性",
+              "runner": "node + vitest 子进程断言",
+              "gate": "release"
+            }
+          ]
+        },
+        {
+          "type": "keyValueList",
+          "items": [
+            {
+              "key": "临时目录原则",
+              "value": "所有测试输入副本和导出产物写系统临时目录，跨平台采用 os.tmpdir + mkdtemp + rm(recursive, force)"
+            },
+            {
+              "key": "编译优先原则",
+              "value": "仓库级集成测试必须先构建 skill CLI 产物，再验证产物行为，不直接以源码脚本替代"
+            },
+            {
+              "key": "可观测性",
+              "value": "所有失败用例需断言 exit code 与关键错误片段，保证可诊断性"
+            },
+            {
+              "key": "Contract 收敛",
+              "value": "renderer 的 contract 命令（块类型合约验证）完全融入 tests/src/integration/contract-blocks.test.ts，阶段2删除 renderer/scripts/contract-render.ts 与 renderer/package.json 中的 contract script"
+            },
+            {
+              "key": "三个核心 CLI 命令的测试覆盖",
+              "value": "validate、render:html、render:markdown 通过 Repo Integration 集成测试完全覆盖（既测源码 tsx 脚本，也测编译后的 .mjs 产物），确保开发与可分发两条链路都稳定"
+            }
+          ],
+          "layout": "stacked"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "command-design",
+      "title": "命令设计与统一入口",
+      "children": [
+        {
+          "type": "table",
+          "caption": "建议统一命令",
+          "columns": [
+            {
+              "key": "command",
+              "label": "命令"
+            },
+            {
+              "key": "purpose",
+              "label": "用途"
+            },
+            {
+              "key": "includes",
+              "label": "包含步骤"
+            }
+          ],
+          "rows": [
+            {
+              "command": "pnpm -w run test:unit",
+              "purpose": "快速反馈",
+              "includes": "仅 renderer 单元测试"
+            },
+            {
+              "command": "pnpm -w run test:integration",
+              "purpose": "验证仓库编排",
+              "includes": "build scripts + skill mjs 执行 + 产物断言"
+            },
+            {
+              "command": "pnpm -w run test:all",
+              "purpose": "合并前全量",
+              "includes": "unit + integration + 关键回归用例"
+            },
+            {
+              "command": "pnpm -w run package:skills",
+              "purpose": "发布前打包",
+              "includes": "renderer build + vendor + cli build + 产物校验"
+            }
+          ]
+        },
+        {
+          "type": "assumption",
+          "statement": "若暂不引入根 package.json，可先用 pnpm dlx vitest 执行 repo-tests 作为过渡方案。",
+          "validated": true
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "risks",
+      "title": "风险与缓解",
+      "children": [
+        {
+          "type": "risk",
+          "title": "workspace 改造影响现有开发流程",
+          "severity": "high",
+          "likelihood": "possible",
+          "description": "开发者仍习惯在 renderer 内独立开发，若命令迁移过快会降低效率。",
+          "mitigation": "保留 renderer 本地命令兼容层，文档明确旧命令到新命令映射。",
+          "owner": "研发负责人",
+          "status": "open"
+        },
+        {
+          "type": "risk",
+          "title": "仓库级测试执行时间增加",
+          "severity": "medium",
+          "likelihood": "likely",
+          "description": "compile-first 与产物验证用例较重，可能拖慢 PR 反馈。",
+          "mitigation": "分层门禁：commit 跑 unit，pr 跑 integration，release 跑全量。",
+          "owner": "研发效能负责人",
+          "status": "open"
+        },
+        {
+          "type": "risk",
+          "title": "跨平台临时目录与文件句柄差异",
+          "severity": "medium",
+          "likelihood": "possible",
+          "description": "Windows 下文件句柄释放时机不同，可能造成清理失败。",
+          "mitigation": "统一封装 tmpdir helper，加入重试与延迟退避清理机制。",
+          "owner": "测试负责人",
+          "status": "open"
+        },
+        {
+          "type": "risk",
+          "title": "Contract 命令迁移与删除",
+          "severity": "low",
+          "likelihood": "likely",
+          "description": "renderer/package.json 的 contract 脚本需要完全迁移到 tests，最终删除 renderer 的命令。若迁移不彻底会造成认知混乱（两处有合约测试）。",
+          "mitigation": "分阶段执行：(1) 阶段 2 在 tests 新建 contract-blocks.test.ts，等价于 renderer/scripts/contract-render.ts；(2) 文档更新指示开发者改用 pnpm -w test:integration；(3) 阶段 2 完成后删除 renderer/scripts/contract-render.ts 与 renderer/package.json 的 contract script。",
+          "owner": "研发负责人",
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "acceptance",
+      "title": "验收标准",
+      "children": [
+        {
+          "type": "checklist",
+          "items": [
+            {
+              "label": "根目录存在统一工作区命令入口并通过 README 说明",
+              "status": "pending"
+            },
+            {
+              "label": "renderer 单元测试和仓库级集成测试职责分离且可独立执行",
+              "status": "pending"
+            },
+            {
+              "label": "skill CLI 编译产物测试从 build 开始并覆盖成功/失败路径",
+              "status": "pending"
+            },
+            {
+              "label": "三个核心 CLI 命令（validate/render:html/render:markdown）在 Repo Integration 中完整覆盖",
+              "status": "pending",
+              "note": "包括正向路径（编译产物）与源码 CLI 路径，确保开发与可分发链路都稳定"
+            },
+            {
+              "label": "Contract 块类型合约测试已迁移到 tests/src/integration/contract-blocks.test.ts",
+              "status": "pending",
+              "note": "验证所有块类型都能无错渲染到 HTML 与 Markdown"
+            },
+            {
+              "label": "renderer/scripts/contract-render.ts 与 renderer/package.json 中的 contract script 已删除",
+              "status": "pending",
+              "note": "开发者通过 pnpm -w test:integration 触发，不再依赖 renderer 内的命令"
+            },
+            {
+              "label": "CI 中门禁顺序与本地执行顺序一致",
+              "status": "pending"
+            },
+            {
+              "label": "任一阶段失败均可回退到上一阶段稳定命令集",
+              "status": "pending"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "summary",
+      "title": "结论",
+      "children": [
+        {
+          "type": "lead",
+          "text": "建议采用“最小 workspace + 分层测试 + compile-first 集成门禁”的渐进式演进路线。核心原则是：测试职责按层拆分、命令入口在根目录收敛、产物验证以 skill 编译结果为准。这样既能覆盖 renderer 之外的仓库编排能力，也能避免一次性重构带来的交付风险。"        },
+        {
+          "type": "section",
+          "title": "关键确认项",
+          "children": [
+            {
+              "type": "checklist",
+              "items": [
+                {
+                  "label": "三个核心 CLI 命令覆盖承诺",
+                  "status": "done",
+                  "note": "validate、render:html、render:markdown 由 Repo Integration 通过子进程执行完整覆盖，包括源码路径（tsx）与编译产物路径（.mjs）"
+                },
+                {
+                  "label": "Contract 完全收敛承诺",
+                  "status": "done",
+                  "note": "renderer/scripts/contract-render.ts 与 renderer/package.json 的 contract 命令在阶段 2 后完全删除，功能 100% 迁移到 tests/src/integration/contract-blocks.test.ts"
+                },
+                {
+                  "label": "不会遗留重复测试",
+                  "status": "done",
+                  "note": "验收标准要求 contract script 明确删除，避免两处合约测试的认知混乱"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,481 @@
+{
+  "schemaVersion": "1.0.0",
+  "meta": {
+    "title": "AIRP 多格式渲染管线：Phase 0/1 架构方案",
+    "subtitle": "HTML + Markdown 双格式；性能 / 体积 / 体验评审",
+    "kind": "architecture",
+    "createdAt": "2026-06-03T18:00:00.000Z",
+    "updatedAt": "2026-06-03T23:00:00.000Z",
+    "authors": ["Cursor Agent"],
+    "tags": ["airp", "renderer", "phase0", "phase1", "markdown", "html"],
+    "sourceRefs": [
+      { "type": "path", "value": "renderer/vite.config.ts" },
+      { "type": "path", "value": "renderer/src/lib/static-html.tsx" },
+      { "type": "path", "value": "scripts/package-skills.mjs" },
+      { "type": "path", "value": "scripts/vendor-airp-assets.mjs" },
+      { "type": "path", "value": "skills/airp-html/SKILL.md" },
+      { "type": "path", "value": "skills/airp-markdown/SKILL.md" }
+    ]
+  },
+  "i18n": {
+    "defaultLocale": "zh-CN",
+    "locales": ["zh-CN"]
+  },
+  "blocks": [
+    {
+      "type": "hero",
+      "metrics": [
+        {
+          "title": "目标阶段",
+          "value": "0 + 1",
+          "description": "管线 + Markdown"
+        },
+        {
+          "title": "交付格式",
+          "value": "HTML · MD",
+          "description": "仅此两种呈现格式"
+        },
+        {
+          "title": "Skill",
+          "value": "airp-html · airp-markdown",
+          "description": "分格式独立 bundle"
+        },
+        {
+          "title": "评审结论",
+          "value": "通过",
+          "description": "1 项架构修正已纳入"
+        }
+      ],
+      "badges": [
+        { "label": "架构报告", "tone": "accent" },
+        { "label": "待实施", "status": "partial" }
+      ]
+    },
+    {
+      "type": "lead",
+      "text": "本方案为全新设计：Phase 0 建立管线，Phase 1 交付 Markdown（`airp-markdown`）。下文含**性能 / skill 体积 / 用户体验**评审，以及**完整仓库目录树**（目标态）。"
+    },
+    {
+      "type": "section",
+      "id": "quality",
+      "title": "性能 · 体积 · 体验评审",
+      "children": [
+        {
+          "type": "lead",
+          "text": "总体结论：**架构合理、层次够薄**；按格式拆 skill 与双 backend 正确。评审发现 **1 处必须修正**（浏览器 HTML 导出路径），其余为实施约束与 UX 细则。"
+        },
+        {
+          "type": "statusBoard",
+          "items": [
+            {
+              "label": "简约性",
+              "status": "pass",
+              "detail": "pipeline + 2 backend；无过渡层、无多余 format"
+            },
+            {
+              "label": "skill 体积",
+              "status": "pass",
+              "detail": "airp-markdown 无 dist；esbuild 双入口防混包"
+            },
+            {
+              "label": "Dashboard dist",
+              "status": "partial",
+              "detail": "MD 必须 lazy chunk；禁止 react-dom/server 进主包"
+            },
+            {
+              "label": "运行时性能",
+              "status": "pass",
+              "detail": "MD O(n) 字符串；HTML SSR 与现况同级"
+            },
+            {
+              "label": "用户体验",
+              "status": "pass",
+              "detail": "空态拖拽+上传；已加载「重新上传」；导出 ▾；文件名取自 meta.title"
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "caption": "分维度评估",
+          "columns": [
+            { "key": "dim", "label": "维度" },
+            { "key": "verdict", "label": "结论" },
+            { "key": "note", "label": "要点" }
+          ],
+          "rows": [
+            {
+              "dim": "性能",
+              "verdict": "可接受",
+              "note": "MD emitter 同步、无 DOM；大报告 HTML SSR 可能数秒，导出时 spinner；预览仍增量 React"
+            },
+            {
+              "dim": "skill 体积",
+              "verdict": "优",
+              "note": "airp-markdown 仅 Zod+emitter（目标 <500KB）；airp-html 负担在 vendored dist（与现况同级）"
+            },
+            {
+              "dim": "Dashboard 体积",
+              "verdict": "需约束",
+              "note": "Vite `manualChunks` 将 `backends/markdown` 单独 chunk；主包不加 MD emitter"
+            },
+            {
+              "dim": "UX 一致",
+              "verdict": "需统一 Artifact",
+              "note": "CLI 与 Dashboard 共用文件名规则、mimeType、locale 解析；导出按钮合并为「导出 ▾」"
+            },
+            {
+              "dim": "可维护",
+              "verdict": "可接受",
+              "note": "短期 block-renderer 与 md emitter 双轨；契约测试防漂移（Sprint B 不强制抽 emit/）"
+            }
+          ]
+        },
+        {
+          "type": "decision",
+          "id": "dec-platform-html",
+          "title": "HtmlBackend 分 Node / Browser 适配器（评审修正）",
+          "status": "accepted",
+          "context": "若 Dashboard 导出 HTML 也 import Node 版 HtmlBackend，会拉入 `react-dom/server`，主包体积暴涨且 bundler 易报错。",
+          "chosen": "`backends/html/node.ts`（SSR + 读盘 CSS/JS）供 CLI；`backends/html/browser.ts`（`renderStaticHtml` + fetch 资源）供 Dashboard。对外仍统一 `renderDocument()`，内部分派。",
+          "rationale": "API 一处、实现分平台；Dashboard 主包体积可控；CLI 行为不变。"
+        },
+        {
+          "type": "decision",
+          "id": "dec-md-lazy",
+          "title": "Dashboard 仅 lazy 加载 Markdown backend",
+          "status": "accepted",
+          "chosen": "用户点击「导出 Markdown」时才 `import('@/backends/markdown')`；首屏不加载 emitter。",
+          "rationale": "多数用户只预览 HTML；MD chunk 按需下载，改善 TTI。"
+        },
+        {
+          "type": "decision",
+          "id": "dec-emit-defer",
+          "title": "Sprint B 不抽 src/emit，用契约测试兜底",
+          "status": "accepted",
+          "chosen": "Phase 1 接受 block-renderer 与 md emitter 双轨；每 block type 最小 fixture 测 html+md 不 throw。",
+          "rationale": "减少 Sprint B 范围；emit 抽象留待双轨稳定后再做，避免过度设计。"
+        },
+        {
+          "type": "risk",
+          "title": "esbuild markdown 入口误依赖 React",
+          "severity": "high",
+          "description": "render-markdown.mjs 若 transitively import 组件树，体积与 skill 目标失效。",
+          "mitigation": "独立 entry `scripts/render-markdown.ts`；CI 检查 bundle 大小；禁止 markdown backend import `@/components/*`。"
+        },
+        {
+          "type": "risk",
+          "title": "双 skill 重复 vendor dist",
+          "severity": "low",
+          "description": "airp-html 与 airp-dashboard 各有一份 renderer-dist，发布包偏大。",
+          "mitigation": "接受（离线安装互不依赖）；不在本阶段合并。"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "phase0",
+      "title": "Phase 0：管线脊柱",
+      "children": [
+        {
+          "type": "mermaid",
+          "diagramKind": "flowchart",
+          "title": "数据流",
+          "source": "flowchart LR\n  IN[\"*.airp.json\"] --> LOAD[\"DocumentLoader\"]\n  LOAD --> DOC[\"AirpDocument\"]\n  DOC --> PIPE[\"renderDocument\"]\n  PIPE --> HN[\"HtmlBackend.node\"]\n  PIPE --> HB[\"HtmlBackend.browser\"]\n  PIPE --> MD[\"MarkdownBackend\"]\n  HN --> CLI[\"airp-html CLI\"]\n  HB --> DASH[\"Dashboard preview/export HTML\"]\n  MD --> CLI2[\"airp-markdown CLI\"]\n  MD --> DASH2[\"Dashboard lazy export MD\"]"
+        },
+        {
+          "type": "definitionList",
+          "items": [
+            {
+              "term": "DocumentLoader",
+              "definition": "读入 → `parseAirpDocument`；输出恒为 `AirpDocument`。"
+            },
+            {
+              "term": "RenderTarget",
+              "definition": "`html` | `markdown`"
+            },
+            {
+              "term": "Artifact",
+              "definition": "统一制品：`format`、`mimeType`、`filename`、`body`；CLI 写盘与浏览器 Blob 下载共用。"
+            },
+            {
+              "term": "renderDocument()",
+              "definition": "唯一调度入口；按 runtime 注册 node/browser HtmlBackend + MarkdownBackend。"
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "language": "typescript",
+          "filename": "renderer/src/pipeline/types.ts",
+          "code": "export type RenderTarget = 'html' | 'markdown';\n\nexport type Artifact = {\n  format: RenderTarget;\n  mimeType: string;\n  filename: string;\n  body: string;\n};\n\nexport interface RenderBackend {\n  readonly format: RenderTarget;\n  render(doc: AirpDocument, ctx: RenderContext): Promise<Artifact>;\n}"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "tree",
+      "title": "仓库目录结构（目标态）",
+      "children": [
+        {
+          "type": "lead",
+          "text": "一次性定型的 monorepo 布局。`renderer/` 为唯一实现源；`skills/` 仅含 SKILL、构建产物与 vendored 静态资源。"
+        },
+        {
+          "type": "code",
+          "language": "text",
+          "filename": "airp/（仓库根）",
+          "code": "airp/\n├── airp-document.schema.json          # 结构 SSOT\n├── README.md\n├── scripts/\n│   ├── package-skills.mjs               # build → vendor → CLI bundle\n│   ├── vendor-airp-assets.mjs           # dist → skills\n│   ├── build-validate-airp.mjs\n│   ├── build-render-html.mjs            # → skills/airp-html/scripts/render-html.mjs\n│   └── build-render-markdown.mjs        # → skills/airp-markdown/scripts/render-markdown.mjs\n├── renderer/\n│   ├── package.json\n│   ├── vite.config.ts                   # manualChunks: markdown-export\n│   ├── index.html\n│   ├── public/\n│   │   ├── airp-chrome.js\n│   │   └── mermaid-init.js\n│   ├── scripts/\n│   │   ├── validate-airp.ts\n│   │   ├── render-html.ts               # Node CLI 入口\n│   │   └── render-markdown.ts           # Node CLI 入口\n│   └── src/\n│       ├── main.tsx\n│       ├── App.tsx\n│       ├── index.css\n│       ├── config/\n│       │   └── renderer-config.ts\n│       ├── pipeline/\n│       │   ├── types.ts\n│       │   ├── load-document.ts         # Node: readFile\n│       │   ├── load-document.browser.ts # Browser: File → doc\n│       │   ├── render-document.ts       # 调度 + registry\n│       │   └── artifact-filename.ts     # meta.title → 安全文件名\n│       ├── backends/\n│       │   ├── html/\n│       │   │   ├── html-backend.node.ts\n│       │   │   ├── html-backend.browser.ts\n│       │   │   ├── static-html.tsx\n│       │   │   ├── export-css.node.ts\n│       │   │   ├── export-css.browser.ts\n│       │   │   └── export-scripts.node.ts\n│       │   └── markdown/\n│       │       ├── markdown-backend.ts\n│       │       ├── emit-document.ts\n│       │       └── emit-block.ts\n│       ├── lib/                         # 与呈现格式无关\n│       │   ├── airp-schema.ts\n│       │   ├── i18n.ts\n│       │   ├── preferences.ts\n│       │   ├── themes.ts\n│       │   ├── toc.ts\n│       │   └── renderer-i18n.ts\n│       ├── components/                  # React UI（预览 / Dashboard）\n│       │   ├── block-renderer.tsx\n│       │   ├── report-page.tsx\n│       │   ├── report-toolbar.tsx\n│       │   ├── document-drop-zone.tsx   # 空态：拖拽 + 上传 JSON\n│       │   ├── export-menu.tsx          # 导出 ▾ HTML | MD\n│       │   └── …\n│       └── hooks/\n│           └── use-report-chrome.ts\n├── skills/\n│   ├── airp/\n│   │   ├── SKILL.md\n│   │   ├── schemas/airp-document.schema.json\n│   │   └── scripts/validate-airp.mjs\n│   ├── airp-html/\n│   │   ├── SKILL.md\n│   │   ├── scripts/\n│   │   │   ├── render-html.mjs          # esbuild 产物\n│   │   │   └── open-url.mjs\n│   │   └── assets/renderer/\n│   │       ├── dist/                    # vendored Vite build\n│   │       └── public/\n│   ├── airp-markdown/                         # Phase 1 新建\n│   │   ├── SKILL.md\n│   │   └── scripts/render-markdown.mjs  # esbuild 产物，无 dist\n│   └── airp-dashboard/\n│       ├── SKILL.md\n│       ├── scripts/\n│       │   ├── serve-dashboard.mjs\n│       │   └── open-url.mjs\n│       └── renderer-dist/               # vendored 全量 Dashboard\n└── .docs/airp/                          # 报告产出默认目录"
+        },
+        {
+          "type": "keyValueList",
+          "title": "依赖方向（禁止反向）",
+          "items": [
+            { "key": "pipeline → backends", "value": "允许" },
+            { "key": "backends → components", "value": "禁止（markdown 尤其）" },
+            { "key": "backends/html/browser → components", "value": "仅 static-html / chrome 标记组件，不 import block-renderer" },
+            { "key": "components → pipeline", "value": "允许（导出菜单调 renderDocument）" },
+            { "key": "skills → renderer 源码", "value": "禁止；仅 vendored 产物与 esbuild bundle" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "phase1",
+      "title": "Phase 1：Markdown",
+      "children": [
+        {
+          "type": "table",
+          "caption": "Block → Markdown（摘要）",
+          "columns": [
+            { "key": "block", "label": "Block" },
+            { "key": "md", "label": "输出" }
+          ],
+          "rows": [
+            { "block": "section / lead / hero", "md": "标题 + 列表/指标" },
+            { "block": "table / comparison / keyValueList", "md": "GFM 表格" },
+            { "block": "code / codeDiff", "md": "fenced code" },
+            { "block": "mermaid / architectureOverview", "md": "```mermaid` 源码块" },
+            { "block": "checklist / timeline / roadmap", "md": "列表 / task list" },
+            { "block": "decision / risk / assumption", "md": "结构化小节" },
+            { "block": "agentNote", "md": "visible≠true 时省略" },
+            { "block": "image / embed", "md": "链接或占位" }
+          ]
+        },
+        {
+          "type": "decision",
+          "id": "dec-md-fidelity",
+          "title": "MD 不渲染 Mermaid SVG",
+          "status": "accepted",
+          "chosen": "fenced code 交付；高保真用 HTML。",
+          "rationale": "纯文本 emitter；零 headless 成本。"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "cli-skills",
+      "title": "Skill 与 CLI",
+      "children": [
+        {
+          "type": "table",
+          "caption": "Skill 矩阵",
+          "columns": [
+            { "key": "skill", "label": "Skill" },
+            { "key": "cli", "label": "CLI" },
+            { "key": "output", "label": "输出" },
+            { "key": "vendor", "label": "vendor dist" }
+          ],
+          "rows": [
+            {
+              "skill": "airp-html · /airp-html",
+              "cli": "render-html.mjs",
+              "output": ".html",
+              "vendor": "是"
+            },
+            {
+              "skill": "airp-markdown · /airp-markdown",
+              "cli": "render-markdown.mjs",
+              "output": ".md",
+              "vendor": "否"
+            },
+            {
+              "skill": "airp · /airp",
+              "cli": "validate-airp.mjs",
+              "output": ".airp.json",
+              "vendor": "否"
+            },
+            {
+              "skill": "airp-dashboard · /airp-dashboard",
+              "cli": "serve-dashboard.mjs",
+              "output": "预览 URL",
+              "vendor": "是"
+            }
+          ]
+        },
+        {
+          "type": "decision",
+          "id": "dec-skill-split",
+          "title": "airp-html + airp-markdown",
+          "status": "accepted",
+          "chosen": "格式即 skill；CLI 名 `render-html` / `render-markdown`；删除 `render-static`。",
+          "rationale": "安装粒度与 bundle 体积最优。"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "browser-ux",
+      "title": "Dashboard 体验",
+      "children": [
+        {
+          "type": "lead",
+          "text": "预览始终 HTML。空态与已加载态的**上传入口分离**：首屏在说明区完成拖拽/选择文件；加载后工具栏仅保留「重新上传 JSON」。"
+        },
+        {
+          "type": "comparison",
+          "labelBefore": "现状",
+          "labelAfter": "目标",
+          "before": [
+            {
+              "type": "bulletList",
+              "items": [
+                "空态仅文案：「上传 .airp.json…语言选项来自文档…」",
+                "「上传 JSON」始终在顶栏工具栏",
+                "无拖拽上传"
+              ]
+            }
+          ],
+          "after": [
+            {
+              "type": "bulletList",
+              "items": [
+                "空态 `DocumentDropZone`：保留说明文案 + **拖拽文件** + **上传 JSON** 按钮",
+                "顶栏 `doc === null` 时**不显示**上传按钮",
+                "文档加载后顶栏显示 **「重新上传 JSON」**（替换原「上传 JSON」）"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "definitionList",
+          "items": [
+            {
+              "term": "DocumentDropZone",
+              "definition": "空态主区域。展示 `emptyHint` / `emptyHintDetail`；支持 drag-over 高亮、`drop` 接收 `.json` / `.airp.json`；内嵌与拖拽等价的文件选择按钮（文案：`uploadJson`）。"
+            },
+            {
+              "term": "ReportToolbar（无文档）",
+              "definition": "仅应用标题、主题/外观；**无**上传、无导出、无文档语言切换（locale 菜单可隐藏或 disabled）。"
+            },
+            {
+              "term": "ReportToolbar（已加载）",
+              "definition": "「重新上传 JSON」+「导出 ▾」+ 文档 locale 菜单 + 主题；重新上传走同一 `onFileSelect` / `handleFile`。"
+            }
+          ]
+        },
+        {
+          "type": "decision",
+          "id": "dec-upload-ux",
+          "title": "空态拖拽 + 工具栏「重新上传 JSON」",
+          "status": "accepted",
+          "chosen": "上传主入口在空态 DropZone；工具栏上传仅在 `doc != null` 时出现，i18n key 新增 `reuploadJson`（如：重新上传 JSON / Re-upload JSON）。",
+          "rationale": "首屏意图清晰；避免空态顶栏与正文双入口；已读报告时换文件动作语义更准确。"
+        },
+        {
+          "type": "checklist",
+          "title": "工具栏与空态（Phase 1）",
+          "items": [
+            { "label": "空态：DocumentDropZone（文案 + 拖拽 + 上传 JSON）", "checked": false },
+            { "label": "空态顶栏：无上传按钮", "checked": false },
+            { "label": "已加载：顶栏「重新上传 JSON」", "checked": false },
+            { "label": "拖拽与按钮共用 loadDocument 路径；错误在 dropzone/顶栏展示", "checked": false },
+            { "label": "「导出 ▾」：HTML | Markdown（仅 doc 已加载）", "checked": false },
+            { "label": "MD：lazy import MarkdownBackend", "checked": false },
+            { "label": "文件名：artifact-filename 从 meta.title 推导", "checked": false },
+            { "label": "导出 spinner + 错误提示", "checked": false }
+          ]
+        },
+        {
+          "type": "keyValueList",
+          "title": "i18n 新增（renderer-i18n）",
+          "items": [
+            { "key": "reuploadJson", "value": "重新上传 JSON（zh-CN）/ Re-upload JSON（en）等" },
+            { "key": "dropHint", "value": "拖拽 .airp.json 到此处（可选副文案）" },
+            { "key": "dropActive", "value": "释放以上传（drag-over 态）" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "sprints",
+      "title": "实施分期",
+      "children": [
+        {
+          "type": "timeline",
+          "events": [
+            {
+              "date": "Sprint A",
+              "title": "Phase 0",
+              "description": "pipeline；HtmlBackend node/browser；render-html.ts；build-render-html.mjs。"
+            },
+            {
+              "date": "Sprint B",
+              "title": "Phase 1",
+              "description": "MarkdownBackend；skills/airp-markdown；契约测试；bundle 体积 CI 阈值。"
+            },
+            {
+              "date": "Sprint C",
+              "title": "Dashboard",
+              "description": "export-menu；DocumentDropZone + 重新上传；lazy MD chunk；vite manualChunks。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "anti-patterns",
+      "title": "明确不做",
+      "children": [
+        {
+          "type": "constraint",
+          "rule": "不为 html/md 各复制 block-renderer.tsx。",
+          "nonNegotiable": true
+        },
+        {
+          "type": "constraint",
+          "rule": "不把 format 写进 airp-document.schema.json。",
+          "nonNegotiable": true
+        },
+        {
+          "type": "constraint",
+          "rule": "Dashboard 主包不 import react-dom/server。",
+          "nonNegotiable": true
+        },
+        {
+          "type": "constraint",
+          "rule": "不保留 render-static 命名。",
+          "nonNegotiable": true
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "summary",
+      "title": "结论",
+      "children": [
+        {
+          "type": "lead",
+          "text": "架构**通过评审**：pipeline + 双 backend + 双 skill 简约且可扩展（仅 html/md）。**修正**：HtmlBackend 分 node/browser，Dashboard MD lazy load。完整目录见「仓库目录结构」节。推荐链：`/airp` → validate → `/airp-html` 或 `/airp-markdown`。"
+        }
+      ]
+    },
+    {
+      "type": "agentNote",
+      "visible": true,
+      "text": "实施 Sprint C 含 DocumentDropZone（拖拽+上传）与工具栏 reuploadJson。Sprint A：pipeline/ + backends/html/{node,browser}.ts。vite manualChunks：markdown-export。airp-markdown bundle CI 上限 500KB。"
+    }
+  ]
+}
