@@ -13,6 +13,7 @@ export interface StaticChromeMarkupProps {
   activeLocale: string;
   themePreset: ThemePreset;
   colorMode: ThemeMode;
+  localeMode?: "all" | "single";
 }
 
 export function StaticChromeMarkup({
@@ -21,6 +22,7 @@ export function StaticChromeMarkup({
   activeLocale,
   themePreset,
   colorMode,
+  localeMode = "all",
 }: StaticChromeMarkupProps) {
   const locales = doc.i18n.locales;
 
@@ -52,21 +54,23 @@ export function StaticChromeMarkup({
               />
             </div>
           </StaticChromePopover>
-          <StaticChromePopover
-            ariaLabel={tRenderer(uiLocale, "localeMenu")}
-            icon={<IconLanguages className="text-muted-foreground" />}
-            id="airp-locale-popover"
-            title={tRenderer(uiLocale, "localeMenu")}
-            triggerAttributes={{ "data-airp-locale-trigger": true }}
-          >
-            <div data-airp-control="locale">
-              <ChromeLocalePanel
-                activeLocale={activeLocale}
-                locales={locales}
-                uiLocale={uiLocale}
-              />
-            </div>
-          </StaticChromePopover>
+          {localeMode === "all" && (
+            <StaticChromePopover
+              ariaLabel={tRenderer(uiLocale, "localeMenu")}
+              icon={<IconLanguages className="text-muted-foreground" />}
+              id="airp-locale-popover"
+              title={tRenderer(uiLocale, "localeMenu")}
+              triggerAttributes={{ "data-airp-locale-trigger": true }}
+            >
+              <div data-airp-control="locale">
+                <ChromeLocalePanel
+                  activeLocale={activeLocale}
+                  locales={locales}
+                  uiLocale={uiLocale}
+                />
+              </div>
+            </StaticChromePopover>
+          )}
         </div>
       </div>
     </header>

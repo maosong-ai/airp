@@ -1,12 +1,13 @@
+import { DocumentDropZone } from "@/components/document-drop-zone";
 import { ReportPage } from "@/components/report-page";
 import { ReportToolbar } from "@/components/report-toolbar";
 import { useReportChrome } from "@/hooks/use-report-chrome";
-import { parseAirpDocument } from "@/lib/airp-schema";
-import { readStoredThemeMode } from "@/lib/preferences";
+import { loadDocumentFromFile } from "@/pipeline/load-document.browser";
+import { downloadArtifact } from "@/pipeline/download-artifact.browser";
+import "@/pipeline/setup.browser";
+import { registerBackend, renderDocument } from "@/pipeline/render-document";
+import type { RenderTarget } from "@/pipeline/types";
 import { tRenderer } from "@/lib/renderer-i18n";
-import { fetchExportCss } from "@/lib/static-export-css.browser";
-import { fetchStaticExportScripts } from "@/lib/static-export-scripts.browser";
-import { renderStaticHtml } from "@/lib/static-html";
 import { useCallback, useState } from "react";
 
 export default function App() {
@@ -20,12 +21,11 @@ export default function App() {
     handleThemePresetChange,
   } = useReportChrome();
   const [parseError, setParseError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<RenderTarget | null>(null);
 
   const handleFile = async (file: File) => {
     try {
-      const text = await file.text();
-      const json = JSON.parse(text) as unknown;
-      loadDocument(parseAirpDocument(json));
+      loadDocument(await loadDocumentFromFile(file));
       setParseError(null);
     } catch (err) {
       setParseError(
@@ -34,37 +34,90 @@ export default function App() {
     }
   };
 
-  const handleExportHtml = useCallback(async () => {
-    if (!doc) {
-      return;
-    }
-    try {
-      const [css, scripts] = await Promise.all([
-        fetchExportCss(),
-        fetchStaticExportScripts(),
-      ]);
-      const html = renderStaticHtml({
-        doc,
-        locale,
-        css,
-        mermaidInitJs: scripts.mermaidInitJs,
-        chromeJs: scripts.chromeJs,
-        themePreset,
-        colorMode: readStoredThemeMode() ?? "system",
-        interactive: true,
-      });
-      const blob = new Blob([html], { type: "text/html" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "report.html";
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } catch (err) {
-      setParseError(
-        err instanceof Error ? err.message : "Failed to export HTML"
-      );
-    }
-  }, [doc, locale, themePreset]);
+  const handleExportMarkdown = useCallback(
+    async (locale: string) => {
+      if (!doc) {
+        return;
+      }
+      setExporting("markdown");
+      setParseError(null);
+      try {
+        const { markdownBackend } = await import("@/backends/markdown");
+        registerBackend(markdownBackend);
+        const artifact = await renderDocument(doc, "markdown", {
+          locale,
+        });
+        downloadArtifact(artifact);
+      } catch (err) {
+        setParseError(
+          err instanceof Error
+            ? err.message
+            : tRenderer(uiLocale, "exportFailed")
+        );
+      } finally {
+        setExporting(null);
+      }
+    },
+    [doc, uiLocale]
+  );
+
+  const handleExportHtmlAll = useCallback(
+    async () => {
+      if (!doc) {
+        return;
+      }
+      setExporting("html");
+      setParseError(null);
+      try {
+        const { htmlBackendBrowser } = await import("@/backends/html/html-backend.browser");
+        registerBackend(htmlBackendBrowser);
+        const artifact = await renderDocument(doc, "html", {
+          locale: doc.i18n.defaultLocale,
+          themePreset,
+          localeMode: "all",
+        });
+        downloadArtifact(artifact);
+      } catch (err) {
+        setParseError(
+          err instanceof Error
+            ? err.message
+            : tRenderer(uiLocale, "exportFailed")
+        );
+      } finally {
+        setExporting(null);
+      }
+    },
+    [doc, themePreset, uiLocale]
+  );
+
+  const handleExportHtmlSingle = useCallback(
+    async (locale: string) => {
+      if (!doc) {
+        return;
+      }
+      setExporting("html");
+      setParseError(null);
+      try {
+        const { htmlBackendBrowser } = await import("@/backends/html/html-backend.browser");
+        registerBackend(htmlBackendBrowser);
+        const artifact = await renderDocument(doc, "html", {
+          locale,
+          themePreset,
+          localeMode: "single",
+        });
+        downloadArtifact(artifact);
+      } catch (err) {
+        setParseError(
+          err instanceof Error
+            ? err.message
+            : tRenderer(uiLocale, "exportFailed")
+        );
+      } finally {
+        setExporting(null);
+      }
+    },
+    [doc, themePreset, uiLocale]
+  );
 
   if (!doc) {
     return (
@@ -72,21 +125,16 @@ export default function App() {
         <ReportToolbar
           doc={null}
           locale={locale}
-          onFileSelect={handleFile}
           onLocaleChange={handleLocaleChange}
           onThemePresetChange={handleThemePresetChange}
-          parseError={parseError}
           themePreset={themePreset}
           uiLocale={uiLocale}
         />
-        <div className="mx-auto max-w-lg px-4 py-24 text-center">
-          <h1 className="font-bold text-2xl">
-            {tRenderer(uiLocale, "emptyHint")}
-          </h1>
-          <p className="mt-3 text-muted-foreground">
-            {tRenderer(uiLocale, "emptyHintDetail")}
-          </p>
-        </div>
+        <DocumentDropZone
+          onFileSelect={handleFile}
+          parseError={parseError}
+          uiLocale={uiLocale}
+        />
       </>
     );
   }
@@ -95,8 +143,11 @@ export default function App() {
     <>
       <ReportToolbar
         doc={doc}
+        exporting={exporting}
         locale={locale}
-        onExportHtml={handleExportHtml}
+        onExportMarkdown={handleExportMarkdown}
+        onExportHtmlAll={handleExportHtmlAll}
+        onExportHtmlSingle={handleExportHtmlSingle}
         onFileSelect={handleFile}
         onLocaleChange={handleLocaleChange}
         onThemePresetChange={handleThemePresetChange}
