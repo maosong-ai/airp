@@ -2,6 +2,7 @@ import path from "node:path";
 import { copyFile, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { assertSingleLocaleHtml } from "../helpers/assert-single-locale-html";
 import { cleanupTempDir, makeTempDir } from "../helpers/tmp-dir";
 import { runCommand } from "../helpers/run-command";
 
@@ -129,10 +130,10 @@ describe("compiled CLI integration (compile-first)", () => {
 
     expect(result.code).toBe(0);
     const html = await readFile(outputPath, "utf-8");
-    expect(html).toContain("Multilingual Report");
-    expect(html).not.toContain('data-airp-control="locale"');
-    expect(html).not.toContain('data-airp-locale-option=');
-    expect(html).not.toContain('data-airp-locale-trigger="true"');
+    assertSingleLocaleHtml(html, {
+      locale: "en",
+      title: "Multilingual Report",
+    });
   });
 
   it("fails compiled html for invalid parameter combination", async () => {
