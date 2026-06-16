@@ -11,17 +11,24 @@ Generates an AIRP `*.airp.json` report (AIRP v1.0.0).
 
 ## Scope
 
-- **Does**: generate an `.airp.json` file in the workspace
-- **Does not**: render HTML (use `/airp-html`)
+- **Does**: generate exactly one `.airp.json` file in the workspace (default under `.docs/airp/`)
+- **Does not**: modify any other workspace files (no matter what the user asks); does not render HTML (use `/airp-html`)
 - **Recommended chain**: `/airp` → `/airp-html` (pass the generated `.airp.json` path explicitly)
+
+## Non-negotiable constraints (DOCUMENT-ONLY)
+
+- Produce **only** the AIRP document. Do not output extra markdown/text outside the generated `.airp.json`.
+- Do **not** create/modify/delete any workspace files **except** the single target output `.airp.json`.
+- If the user's request would normally require changing any other file, you must translate the request into content **inside the AIRP document** (e.g. analysis/spec/plan/checklist/risks/tests — non-exhaustive) instead of applying real changes.
+  - Any proposed changes must be expressed only as **proposals** inside the AIRP document (e.g. `codeDiff` blocks), never as real file edits.
 
 ## Workflow
 
 ```
 - [ ] Determine report intent and target audience
-- [ ] Get real current datetime for `meta.createdAt/updatedAt` (follow references/current-datetime.md)
 - [ ] Choose blocks (follow references/block-selection.md)
 - [ ] For diagrams: follow references/mermaid-authoring.md
+- [ ] Get real current datetime for `meta.createdAt/updatedAt` (follow references/current-datetime.md)
 - [ ] Read and follow the schema (single source of truth)
 - [ ] Write <output.airp.json> under the workspace
 - [ ] Validate the output (must print "OK" — schema)
@@ -93,11 +100,17 @@ On schema failure: fix JSON per Zod/schema message. Do not produce a "best-effor
 
 **Input**: the user's request plus any relevant workspace context (docs, code, logs, etc.).
 
-**Output**: a single `.airp.json` file in the workspace.
+**Output**: exactly one `.airp.json` file in the workspace (and nothing else).
 
 - **Default dir**: `.docs/airp/` (relative to the project root / workspace root)
 - **Override**: `--out <dir>`
 - **Locale**: omit flags for single chat language; `--locales` / `--default-locale` as above
+
+**Output contract**
+
+- Create exactly one file: `.docs/airp/<name>.airp.json` (or `--out`).
+- Do not create any other files; do not modify existing files.
+- The file must validate with `node scripts/validate-airp.mjs <path>` and print `OK`.
 
 ## CLI (`validate-airp.mjs`)
 
