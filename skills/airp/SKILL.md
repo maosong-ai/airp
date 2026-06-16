@@ -19,6 +19,7 @@ Generates an AIRP `*.airp.json` report (AIRP v1.0.0).
 
 ```
 - [ ] Determine report intent and target audience
+- [ ] Get real current datetime for `meta.createdAt/updatedAt` (follow references/current-datetime.md)
 - [ ] Choose blocks (follow references/block-selection.md)
 - [ ] For diagrams: follow references/mermaid-authoring.md
 - [ ] Read and follow the schema (single source of truth)
