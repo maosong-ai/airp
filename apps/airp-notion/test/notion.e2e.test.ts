@@ -116,9 +116,8 @@ async function openPage(options?: { picker?: string }): Promise<{
 
 /** Add one block through the operation line's content menu. */
 async function addParagraph(page: Page): Promise<void> {
-  await page
-    .locator('.operation-line .gutter-action[data-gutter="add"]')
-    .click();
+  await page.locator(".operation-line .field-input").click();
+  await page.keyboard.type("/");
   await page.locator(".type-menu button", { hasText: "段落" }).click();
   await page.waitForSelector('.block[data-block-type="paragraph"]');
 }
@@ -227,37 +226,6 @@ describe("airp-notion", () => {
     expect(inserted?.text).toBe("引用来源");
     // The `/blockquote` scaffolding must not survive as content.
     expect(JSON.stringify(source.blocks)).not.toContain("/blockquote");
-
-    await page.close();
-  });
-
-  it("adds a line from that line's own + handle", async () => {
-    const { page } = await openPage();
-    await addParagraph(page);
-    await page.locator(".field-input").first().fill("第一行");
-
-    const line = page.locator(".block").first();
-    await line.hover();
-    // The handle only exists on the line under the pointer — that is the design.
-    await line.locator('.gutter-action[data-gutter="add"]').click();
-
-    const menu = page.locator(".type-menu");
-    await menu.waitFor();
-    expect(await menu.locator("button").count()).toBe(BLOCK_TYPES);
-    // The menu the `+` opens is filterable too, so a type is reachable by name
-    // without a memorised order.
-    await page.keyboard.type("blockq");
-    expect(await menu.locator("button").count()).toBe(1);
-    await menu.locator("button").first().click();
-
-    // It lands below the line it was asked from, and the caret is in it.
-    const types = await page
-      .locator(".block")
-      .evaluateAll((rows) => rows.map((row) => row.dataset.blockType));
-    expect(types).toEqual(["paragraph", "blockquote"]);
-    await page.keyboard.type("引用来源");
-    const source = await readSource(page);
-    expect(JSON.stringify(source.blocks)).toContain("引用来源");
 
     await page.close();
   });
@@ -531,8 +499,7 @@ describe("airp-notion", () => {
       await page.evaluate((sel) => {
         const row = document.querySelector(sel);
         const field = row?.querySelector(".field-input");
-        const gutter = row?.querySelector(".block-gutter");
-        if (!(field instanceof HTMLElement && gutter instanceof HTMLElement)) {
+        if (!(field instanceof HTMLElement)) {
           return "missing";
         }
         const box = field.getBoundingClientRect();
@@ -546,7 +513,6 @@ describe("airp-notion", () => {
             Math.round(box.height),
           ],
           font: fieldStyle.fontSize,
-          handles: gutter.children.length,
           lineHeight: fieldStyle.lineHeight,
           padding: fieldStyle.padding,
           row: [rowStyle.padding, rowStyle.borderLeftWidth],
@@ -559,9 +525,18 @@ describe("airp-notion", () => {
     await page.keyboard.type("一");
     await page.waitForSelector('.block[data-block-type="paragraph"]');
 
-    // Not "similar" — the same box, the same element type, the same two handles.
-    // Typing must not move anything, or the conversion reads as a jump.
+    // Not "similar": the same box and the same element type, so typing moves
+    // nothing. The gutter is the one intended difference — the operation line has
+    // no handles, and the paragraph it becomes has its grip.
     expect(await shape('.block[data-block-type="paragraph"]')).toBe(before);
+    expect(await page.locator(".operation-line .gutter-action").count()).toBe(
+      0
+    );
+    expect(
+      await page
+        .locator('.block[data-block-type="paragraph"] .gutter-action')
+        .count()
+    ).toBe(1);
 
     await page.close();
   });

@@ -293,7 +293,7 @@ let slashIndex = 0;
 let slashQuery = "";
 let slashAnchor: HTMLElement | undefined;
 /** What choosing a type does to the document. */
-type TypeMode = "append" | "insert-after" | "turn-into";
+type TypeMode = "append" | "turn-into";
 
 interface TypeTarget {
   /** The line the choice is relative to. */
@@ -324,8 +324,6 @@ function chooseSlashEntry(entry: MenuEntry): void {
   // it is cleared before anything else happens, or it ends up in the document.
   const cleared =
     fieldPath === undefined ? airpDocument : setAt(airpDocument, fieldPath, "");
-  const parent = blockPath.slice(0, -1);
-  const index = Number(blockPath.at(-1));
   const born = createBlock(entry.type, VERSION, cleared);
 
   if (mode === "append") {
@@ -347,8 +345,6 @@ function chooseSlashEntry(entry: MenuEntry): void {
     focusFirstControl(blockPath);
     return;
   }
-  commit(insertAt(cleared, parent, index + 1, born));
-  focusFirstControl([...parent, index + 1]);
 }
 
 /* ── the block menu behind the ⋮⋮ handle ─────────────────────────────────── */
@@ -1091,15 +1087,10 @@ function renderBlock(
   // author is looking rather than only at the end of the document.
   const gutter = document.createElement("div");
   gutter.className = "block-gutter";
+  // The grip, and nothing else. Adding a block is the operation line's job, so the
+  // `+` that used to sit here had no work left — and a handle beside every line
+  // that does nothing is worse than no handle.
   gutter.append(
-    gutterAction(
-      "＋",
-      "点击添加内容块",
-      (button) => {
-        openSlashMenu("", button, { blockPath: path, mode: "insert-after" });
-      },
-      "add"
-    ),
     draggingHandle(type, row, (button) => {
       openBlockMenu(button, path);
     })
@@ -1194,41 +1185,9 @@ function operationLine(): HTMLElement {
   row.className = "operation-line";
   row.dataset.operationLine = "true";
 
-  const gutter = document.createElement("div");
-  gutter.className = "block-gutter";
-  gutter.append(
-    gutterAction(
-      "＋",
-      "点击添加内容块",
-      (button) => {
-        openSlashMenu("", button, { blockPath: blocksPath(), mode: "append" });
-      },
-      "add"
-    ),
-    gutterAction(
-      "⋮⋮",
-      "拖拽移动、打开菜单",
-      () => {
-        // The handle acts on the line, so the line becomes real first — and then
-        // it is the paragraph it just became, with the same menu behind the same
-        // handle.
-        const index = blockCount();
-        materializeParagraph("");
-        const fresh = editorEl.querySelector(`[data-path="blocks/${index}"]`);
-        const handle = fresh?.querySelector(
-          '.gutter-action[data-gutter="menu"]'
-        );
-        if (handle instanceof HTMLElement) {
-          openBlockMenu(handle, ["blocks", index]);
-        }
-      },
-      "menu"
-    )
-  );
-
-  // A textarea, not an input: this line *is* the paragraph it becomes, so it wraps
-  // and grows the same way. Anything less shows up as a change on the first
-  // keystroke, which is the one thing this line exists to avoid.
+  // Only a field. Notion puts `+` and `⋮⋮` beside the empty line; here the line
+  // itself is the affordance and the author chooses between typing and `/`. There
+  // is nothing to grip on a line that is not in the document yet.
   const field = textControl(
     "",
     true,
@@ -1247,7 +1206,7 @@ function operationLine(): HTMLElement {
   const wrap = document.createElement("div");
   wrap.className = "field";
   wrap.append(field);
-  row.append(gutter, wrap);
+  row.append(wrap);
   return row;
 }
 
