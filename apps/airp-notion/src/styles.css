@@ -507,3 +507,23 @@ body.is-dragging {
   border: 0;
   transform-origin: top left;
 }
+
+/* ── the operation line is the paragraph it is about to become ───────────── */
+
+/*
+ * One box model for both, written as one rule so they cannot drift: same padding,
+ * same transparent left border (a block paints it on hover — without it here the
+ * line would jump sideways by two pixels on the first keystroke), same gutter
+ * reveal.
+ */
+.block,
+.operation-line {
+  position: relative;
+  padding: 3px 0 6px;
+  border-left: 2px solid transparent;
+}
+
+.block:hover,
+.operation-line:hover {
+  border-left-color: var(--rule);
+}

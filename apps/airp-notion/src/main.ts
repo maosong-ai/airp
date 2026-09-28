@@ -1204,12 +1204,34 @@ function operationLine(): HTMLElement {
         openSlashMenu("", button, { blockPath: blocksPath(), mode: "append" });
       },
       "add"
+    ),
+    gutterAction(
+      "⋮⋮",
+      "拖拽移动、打开菜单",
+      () => {
+        // The handle acts on the line, so the line becomes real first — and then
+        // it is the paragraph it just became, with the same menu behind the same
+        // handle.
+        const index = blockCount();
+        materializeParagraph("");
+        const fresh = editorEl.querySelector(`[data-path="blocks/${index}"]`);
+        const handle = fresh?.querySelector(
+          '.gutter-action[data-gutter="menu"]'
+        );
+        if (handle instanceof HTMLElement) {
+          openBlockMenu(handle, ["blocks", index]);
+        }
+      },
+      "menu"
     )
   );
 
+  // A textarea, not an input: this line *is* the paragraph it becomes, so it wraps
+  // and grows the same way. Anything less shows up as a change on the first
+  // keystroke, which is the one thing this line exists to avoid.
   const field = textControl(
     "",
-    false,
+    true,
     (text) => {
       // A slash command is scaffolding for the menu, not text to keep.
       if (!SLASH_QUERY.test(text)) {

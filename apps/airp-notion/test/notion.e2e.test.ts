@@ -116,7 +116,9 @@ async function openPage(options?: { picker?: string }): Promise<{
 
 /** Add one block through the operation line's content menu. */
 async function addParagraph(page: Page): Promise<void> {
-  await page.locator(".operation-line .gutter-action").click();
+  await page
+    .locator('.operation-line .gutter-action[data-gutter="add"]')
+    .click();
   await page.locator(".type-menu button", { hasText: "段落" }).click();
   await page.waitForSelector('.block[data-block-type="paragraph"]');
 }
@@ -517,6 +519,49 @@ describe("airp-notion", () => {
     expect((await field.boundingBox())?.height ?? 0).toBeGreaterThan(
       oneLine + 10
     );
+
+    await page.close();
+  });
+
+  it("makes the operation line identical to the paragraph it becomes", async () => {
+    const { page } = await openPage();
+
+    /** Everything a reader would notice moving between the two. */
+    const shape = async (selector: string): Promise<string> =>
+      await page.evaluate((sel) => {
+        const row = document.querySelector(sel);
+        const field = row?.querySelector(".field-input");
+        const gutter = row?.querySelector(".block-gutter");
+        if (!(field instanceof HTMLElement && gutter instanceof HTMLElement)) {
+          return "missing";
+        }
+        const box = field.getBoundingClientRect();
+        const fieldStyle = getComputedStyle(field);
+        const rowStyle = getComputedStyle(row as Element);
+        return JSON.stringify({
+          box: [
+            Math.round(box.left),
+            Math.round(box.top),
+            Math.round(box.width),
+            Math.round(box.height),
+          ],
+          font: fieldStyle.fontSize,
+          handles: gutter.children.length,
+          lineHeight: fieldStyle.lineHeight,
+          padding: fieldStyle.padding,
+          row: [rowStyle.padding, rowStyle.borderLeftWidth],
+          tag: field.tagName,
+        });
+      }, selector);
+
+    const before = await shape(".operation-line");
+    await page.locator(".operation-line .field-input").click();
+    await page.keyboard.type("一");
+    await page.waitForSelector('.block[data-block-type="paragraph"]');
+
+    // Not "similar" — the same box, the same element type, the same two handles.
+    // Typing must not move anything, or the conversion reads as a jump.
+    expect(await shape('.block[data-block-type="paragraph"]')).toBe(before);
 
     await page.close();
   });
