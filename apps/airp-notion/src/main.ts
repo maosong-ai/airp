@@ -95,6 +95,30 @@ function emptyDocument(): Record<string, unknown> {
 }
 
 let airpDocument: unknown = emptyDocument();
+/**
+ * The file this document lives in, once it has one.
+ *
+ * Deliberately outside the document: where a file sits is the host's business,
+ * and writing a handle into the JSON would make the document depend on the
+ * machine that saved it. It is also why a refresh starts empty — that is not a
+ * bug, it is what "not saved yet" means.
+ */
+let fileHandle: FileSystemFileHandle | undefined;
+
+/** The picker is not in the DOM typings; it is Chromium's, and it is optional. */
+interface FilePickerWindow {
+  showSaveFilePicker?: (options: {
+    suggestedName?: string;
+    types?: { accept: Record<string, string[]>; description: string }[];
+  }) => Promise<FileSystemFileHandle>;
+}
+
+const SAVE_TYPES = [
+  {
+    accept: { "application/json": [".airp.json", ".json"] },
+    description: "AIRP 文档",
+  },
+];
 let dirty = false;
 let undoStack: unknown[] = [];
 let redoStack: unknown[] = [];
@@ -159,7 +183,9 @@ function say(text: string, isError = false): void {
 }
 
 function statusLine(): void {
-  say(`${blockCount()} 个块 · ${dirty ? "未保存" : "已同步"}`);
+  const where = fileHandle?.name;
+  const state = dirty || where === undefined ? "未保存" : `已保存到 ${where}`;
+  say(`${blockCount()} 个块 · ${state}`);
 }
 
 /* ── preview ────────────────────────────────────────────────────────────── */
@@ -538,6 +564,9 @@ function renderSlashMenu(): void {
 
 document.addEventListener("keydown", (event) => {
   const accelerator = event.metaKey || event.ctrlKey;
+  if (handleSaveShortcut(event)) {
+    return;
+  }
   if (accelerator && event.key.toLowerCase() === "z") {
     event.preventDefault();
     if (event.shiftKey) {
@@ -1242,14 +1271,98 @@ titleEl.addEventListener("dblclick", beginRename);
 /* ── the page's own options ─────────────────────────────────────────────── */
 
 /**
- * Saving stamps the document's own timestamp, which is the time the preview head
+ * Save stamps the document's own timestamp, which is the time the preview head
  * shows — so it says when the author last saved, not when a pane last repainted.
- * In a browser the save is a download; a desktop shell would write the same bytes
- * to a file.
+ *
+ * Once a document has a file, saving writes that file and asks nothing: the second
+ * ⌘S on a document that already lives somewhere must not be a dialog. `saveAs`
+ * forces the picker, which is the only difference between the two commands.
+ *
+ * With no File System Access API — Firefox, Safari — the browser's one other way
+ * to write is a download, and the state line says so rather than pretending a
+ * file was updated.
  */
-function saveDocument(): void {
+async function saveDocument(saveAs = false): Promise<void> {
   airpDocument = withUpdatedAt(airpDocument, new Date().toISOString());
+  renderStamps();
+
+  if (!saveAs && fileHandle !== undefined) {
+    await writeDocument(fileHandle);
+    return;
+  }
+
+  const pick = (window as unknown as FilePickerWindow).showSaveFilePicker;
+  if (pick === undefined) {
+    downloadDocument();
+    return;
+  }
+  let picked: FileSystemFileHandle;
+  try {
+    picked = await pick({
+      suggestedName: fileNameOf(airpDocument),
+      types: SAVE_TYPES,
+    });
+  } catch {
+    // The author closed the dialog. Nothing happened, and nothing should.
+    statusLine();
+    return;
+  }
+  await writeDocument(picked);
+}
+
+/**
+ * ⌘S saves, ⇧⌘S saves elsewhere. Answers whether it consumed the keystroke.
+ *
+ * A file-based app has to answer ⌘S — and answer it without a dialog when the
+ * document already has a file.
+ */
+function handleSaveShortcut(event: KeyboardEvent): boolean {
+  if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "s") {
+    return false;
+  }
+  event.preventDefault();
+  if (event.shiftKey) {
+    saveAs();
+  } else {
+    save();
+  }
+  return true;
+}
+
+/** Save, and put a failure where the author can see it. */
+function save(): void {
+  saveDocument().catch((error: unknown) => {
+    say(error instanceof Error ? error.message : String(error), true);
+  });
+}
+
+/** 另存为, likewise. */
+function saveAs(): void {
+  saveDocument(true).catch((error: unknown) => {
+    say(error instanceof Error ? error.message : String(error), true);
+  });
+}
+
+/** Write the document into a file, and remember it as this document's file. */
+async function writeDocument(handle: FileSystemFileHandle): Promise<void> {
+  try {
+    const writable = await handle.createWritable();
+    await writable.write(serialize(airpDocument));
+    await writable.close();
+  } catch (error) {
+    say(
+      `写入失败：${error instanceof Error ? error.message : String(error)}`,
+      true
+    );
+    return;
+  }
+  fileHandle = handle;
   dirty = false;
+  say(`已保存到 ${handle.name}`);
+}
+
+/** The fallback for browsers without the picker: hand the bytes to the author. */
+function downloadDocument(): void {
   const blob = new Blob([serialize(airpDocument)], {
     type: "application/json",
   });
@@ -1259,9 +1372,9 @@ function saveDocument(): void {
   anchor.href = url;
   anchor.click();
   URL.revokeObjectURL(url);
-  renderStamps();
+  dirty = false;
+  say("此浏览器不支持写入文件，已改为下载");
   statusLine();
-  schedulePreview();
 }
 
 menuButton.addEventListener("click", () => {
@@ -1282,8 +1395,12 @@ pageMenu.addEventListener("click", (event) => {
   const action = (event.target as HTMLElement).dataset.action;
   pageMenu.hidden = true;
   switch (action) {
-    case "export": {
-      saveDocument();
+    case "save": {
+      save();
+      return;
+    }
+    case "save-as": {
+      saveAs();
       return;
     }
     case "source": {
@@ -1293,7 +1410,7 @@ pageMenu.addEventListener("click", (event) => {
       }
       return;
     }
-    case "import": {
+    case "open": {
       fileInput.click();
       return;
     }
@@ -1321,6 +1438,8 @@ fileInput.addEventListener("change", () => {
         return;
       }
       airpDocument = loaded.value.document;
+      // The name came from the file, so the next save writes that same file back.
+      fileHandle = undefined;
       undoStack = [];
       redoStack = [];
       dirty = false;

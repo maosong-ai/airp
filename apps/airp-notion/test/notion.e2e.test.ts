@@ -52,10 +52,60 @@ afterAll(async () => {
   await server?.close();
 });
 
-async function openPage(): Promise<{ page: Page; preview: FrameLocator }> {
+/**
+ * Stand in for the browser's save picker.
+ *
+ * Chromium's real one opens an operating-system dialog no test can answer, so the
+ * logic worth testing — bound to a file after the first save, no dialog after
+ * that, 另存为 always asking — is tested against a stand-in that records what it
+ * was asked for and what it was told to write.
+ */
+async function stubPicker(page: Page, fileName: string): Promise<void> {
+  await page.addInitScript((name: string) => {
+    const log = { names: [] as string[], writes: [] as string[] };
+    (window as unknown as { __picker: typeof log }).__picker = log;
+    (
+      window as unknown as {
+        showSaveFilePicker: (options: {
+          suggestedName?: string;
+        }) => Promise<unknown>;
+      }
+    ).showSaveFilePicker = (options) => {
+      log.names.push(options.suggestedName ?? "");
+      return Promise.resolve({
+        createWritable: () =>
+          Promise.resolve({
+            close: () => Promise.resolve(),
+            write: (text: string) => {
+              log.writes.push(text);
+              return Promise.resolve();
+            },
+          }),
+        name,
+      });
+    };
+  }, fileName);
+}
+
+/** The picker's log, as the page recorded it. */
+async function pickerLog(
+  page: Page
+): Promise<{ names: string[]; writes: string[] }> {
+  return (await page.evaluate(
+    () => (window as unknown as { __picker: unknown }).__picker
+  )) as { names: string[]; writes: string[] };
+}
+
+async function openPage(options?: { picker?: string }): Promise<{
+  page: Page;
+  preview: FrameLocator;
+}> {
   const page = await browser.newPage({
     viewport: { width: 1440, height: 900 },
   });
+  if (options?.picker !== undefined) {
+    await stubPicker(page, options.picker);
+  }
   await page.goto(url);
   // The page opens empty, so the way in is what says it is ready.
   await page.waitForSelector(".operation-line");
@@ -385,6 +435,48 @@ describe("airp-notion", () => {
     await page.close();
   });
 
+  it("saves into the file it is bound to, and dialogs only when asked", async () => {
+    const { page } = await openPage({ picker: "季度评审.airp.json" });
+    await addParagraph(page);
+
+    // The first save has no file yet, so it asks — suggesting the document's name.
+    await page.click("#menu-button");
+    await page.click('[data-action="save"]');
+    await expect
+      .poll(async () => (await pickerLog(page)).writes.length, {
+        timeout: 5000,
+      })
+      .toBe(1);
+    expect((await pickerLog(page)).names).toEqual(["未命名报告.airp.json"]);
+    expect(await page.locator("#state").textContent()).toContain(
+      "已保存到 季度评审.airp.json"
+    );
+
+    // Editing and saving again edits *that file*: no dialog, same file, one more
+    // write. A second save on a document that already lives somewhere is not a
+    // question.
+    await page.locator(".field-input").first().fill("改一下");
+    await page.waitForTimeout(400);
+    await page.click("#menu-button");
+    await page.click('[data-action="save"]');
+    await expect
+      .poll(async () => (await pickerLog(page)).writes.length, {
+        timeout: 5000,
+      })
+      .toBe(2);
+    expect((await pickerLog(page)).names).toHaveLength(1);
+
+    // 另存为 always asks.
+    await page.click("#menu-button");
+    await page.click('[data-action="save-as"]');
+    await expect
+      .poll(async () => (await pickerLog(page)).names.length, { timeout: 5000 })
+      .toBe(2);
+    expect((await pickerLog(page)).writes).toHaveLength(3);
+
+    await page.close();
+  });
+
   it("renders the edit in the preview pane", async () => {
     const { page, preview } = await openPage();
     await addParagraph(page);
@@ -429,7 +521,7 @@ describe("airp-notion", () => {
   });
 
   it("renames the document in place, and saves the file under that name", async () => {
-    const { page } = await openPage();
+    const { page } = await openPage({ picker: "季度评审 2026.airp.json" });
 
     await page.locator("#title").dblclick();
     const input = page.locator(".bar-title-input");
@@ -461,42 +553,43 @@ describe("airp-notion", () => {
     await page.keyboard.press("Enter");
     expect(await page.locator("#title").textContent()).toBe("季度评审 2026");
 
-    // …and the saved file carries the document's own name.
-    const [download] = await Promise.all([
-      page.waitForEvent("download"),
-      (async () => {
-        await page.click("#menu-button");
-        await page.click('[data-action="export"]');
-      })(),
-    ]);
-    expect(download.suggestedFilename()).toBe("季度评审 2026.airp.json");
+    // …and the file it offers to write carries the document's own name.
+    await page.click("#menu-button");
+    await page.click('[data-action="save-as"]');
+    await expect
+      .poll(async () => (await pickerLog(page)).names.length, { timeout: 5000 })
+      .toBe(1);
+    expect((await pickerLog(page)).names[0]).toBe("季度评审 2026.airp.json");
 
     await page.close();
   });
 
   it("stamps the document's own time when saving", async () => {
-    const { page } = await openPage();
+    const { page } = await openPage({ picker: "报告.airp.json" });
     await addParagraph(page);
 
     expect(await page.locator("#preview-state").textContent()).toContain(
       "最后更新"
     );
 
-    const [download] = await Promise.all([
-      page.waitForEvent("download"),
-      (async () => {
-        await page.click("#menu-button");
-        await page.click('[data-action="export"]');
-      })(),
-    ]);
+    await page.click("#menu-button");
+    await page.click('[data-action="save"]');
 
-    expect(download.suggestedFilename()).toBe("未命名报告.airp.json");
     // The save writes the document's timestamp, which is what the head shows — so
     // the time is when the author saved, not when a pane happened to refresh.
-    const saved = await readSource(page);
-    expect(typeof saved.meta?.updatedAt).toBe("string");
-    expect(Number.isNaN(Date.parse(String(saved.meta?.updatedAt)))).toBe(false);
-    expect(await page.locator("#state").textContent()).toContain("已同步");
+    await expect
+      .poll(async () => (await pickerLog(page)).writes.length, {
+        timeout: 5000,
+      })
+      .toBe(1);
+    const written = JSON.parse((await pickerLog(page)).writes[0] ?? "{}") as {
+      meta?: { updatedAt?: string };
+    };
+    expect(typeof written.meta?.updatedAt).toBe("string");
+    expect(Number.isNaN(Date.parse(String(written.meta?.updatedAt)))).toBe(
+      false
+    );
+    expect(await page.locator("#state").textContent()).toContain("已保存到");
 
     await page.close();
   });
