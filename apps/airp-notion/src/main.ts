@@ -761,6 +761,185 @@ function summaryFor(value: unknown): HTMLElement {
   return summary;
 }
 
+/* ── reordering by dragging the handle ───────────────────────────────────── */
+
+/** How far the pointer moves before a press becomes a drag rather than a click. */
+const DRAG_THRESHOLD = 4;
+
+/** Digits only, for reading an index back out of a `data-path`. */
+const DIGITS = /^\d+$/;
+
+function pathFromDataset(value: string): NodePath {
+  return value
+    .split("/")
+    .map((segment) => (DIGITS.test(segment) ? Number(segment) : segment));
+}
+
+interface DragState {
+  /** Rects captured before anything moved: every measurement is off these. */
+  boxes: DOMRect[];
+  from: number;
+  row: HTMLElement;
+  siblings: HTMLElement[];
+  startY: number;
+  to: number;
+}
+
+let drag: DragState | undefined;
+
+/** True once the pointer has moved far enough that this is a drag, not a click. */
+let dragging = false;
+/** Set when a drag ends, so the click that follows it opens nothing. */
+let justDragged = false;
+
+/**
+ * Start a drag from the handle.
+ *
+ * Only rows that share a parent take part, and the drop lands in that same parent
+ * — dragging a block into a `section` is deliberately not supported, so the
+ * target is always one of these siblings.
+ */
+function beginDrag(
+  event: PointerEvent,
+  row: HTMLElement,
+  handle: HTMLElement
+): void {
+  // A new press is a new interaction: the click that ended the *previous* drag is
+  // long gone by now, so the flag has to be cleared here. Waiting for a click to
+  // clear it swallowed the next honest click on the handle.
+  justDragged = false;
+  const parent = row.parentElement;
+  if (parent === null) {
+    return;
+  }
+  const siblings = [...parent.children].filter(
+    (child): child is HTMLElement =>
+      child instanceof HTMLElement && child.dataset.path !== undefined
+  );
+  const from = siblings.indexOf(row);
+  if (from < 0) {
+    return;
+  }
+  drag = {
+    boxes: siblings.map((sibling) => sibling.getBoundingClientRect()),
+    from,
+    row,
+    siblings,
+    startY: event.clientY,
+    to: from,
+  };
+  try {
+    handle.setPointerCapture(event.pointerId);
+  } catch {
+    // The pointer can already be gone by the time this runs. Capture is a
+    // convenience — the handlers are on the handle either way.
+  }
+  event.preventDefault();
+}
+
+/** Move the row under the pointer and let its siblings slide out of the way. */
+function updateDrag(event: PointerEvent): void {
+  const state = drag;
+  if (state === undefined) {
+    return;
+  }
+  const dy = event.clientY - state.startY;
+  if (!dragging && Math.abs(dy) < DRAG_THRESHOLD) {
+    return;
+  }
+  if (!dragging) {
+    dragging = true;
+    state.row.dataset.dragging = "true";
+    document.body.classList.add("is-dragging");
+  }
+
+  const startBox = state.boxes[state.from];
+  const centre =
+    (startBox === undefined ? 0 : startBox.top + startBox.height / 2) + dy;
+
+  // Which slot the dragged row's centre now sits in. A slot is claimed once its
+  // own midpoint is passed, which is what makes the row swap feel immediate.
+  let to = state.from;
+  state.boxes.forEach((box, index) => {
+    if (index === state.from) {
+      return;
+    }
+    const middle = box.top + box.height / 2;
+    if (index < state.from && centre < middle) {
+      to = Math.min(to, index);
+    }
+    if (index > state.from && centre > middle) {
+      to = Math.max(to, index);
+    }
+  });
+  state.to = to;
+
+  const shift = startBox?.height ?? 0;
+  state.siblings.forEach((sibling, index) => {
+    if (index === state.from) {
+      return;
+    }
+    const makesRoom =
+      state.from < to
+        ? index > state.from && index <= to
+        : index >= to && index < state.from;
+    sibling.style.transform = makesRoom
+      ? `translateY(${state.from < to ? -shift : shift}px)`
+      : "";
+  });
+  // The lifted row follows the pointer exactly, so it carries no transition.
+  state.row.style.transform = `translateY(${dy}px)`;
+}
+
+/** Drop the row: clear the animation state, then change the document for real. */
+function endDrag(): void {
+  const state = drag;
+  drag = undefined;
+  if (state === undefined) {
+    dragging = false;
+    return;
+  }
+  for (const sibling of state.siblings) {
+    sibling.style.transform = "";
+  }
+  state.row.style.transform = "";
+  delete state.row.dataset.dragging;
+  document.body.classList.remove("is-dragging");
+  if (!dragging) {
+    return;
+  }
+  dragging = false;
+  justDragged = true;
+  if (state.to === state.from) {
+    return;
+  }
+  const path = state.row.dataset.path;
+  if (path !== undefined) {
+    commit(moveAt(airpDocument, pathFromDataset(path), state.to));
+  }
+}
+
+/** The grip: press and it drags, click and it opens the block menu. */
+function draggingHandle(
+  type: string,
+  row: HTMLElement,
+  open: (button: HTMLElement) => void
+): HTMLElement {
+  const handle = gutterAction(
+    "⋮⋮",
+    `${blockMeta(type).label} · 拖拽移动、打开菜单`,
+    open,
+    "menu"
+  );
+  handle.addEventListener("pointerdown", (event) => {
+    beginDrag(event, row, handle);
+  });
+  handle.addEventListener("pointermove", updateDrag);
+  handle.addEventListener("pointerup", endDrag);
+  handle.addEventListener("pointercancel", endDrag);
+  return handle;
+}
+
 /** One gutter button: quiet until the line is under the pointer. */
 function gutterAction(
   glyph: string,
@@ -777,6 +956,12 @@ function gutterAction(
   button.textContent = glyph;
   button.title = title;
   button.addEventListener("click", () => {
+    // A press that turned into a drag ends with a click event too. It is not a
+    // request to open the menu.
+    if (justDragged) {
+      justDragged = false;
+      return;
+    }
     open(button);
   });
   return button;
@@ -810,14 +995,9 @@ function renderBlock(
       },
       "add"
     ),
-    gutterAction(
-      "⋮⋮",
-      `${blockMeta(type).label} · 拖拽移动、打开菜单`,
-      (button) => {
-        openBlockMenu(button, path);
-      },
-      "menu"
-    )
+    draggingHandle(type, row, (button) => {
+      openBlockMenu(button, path);
+    })
   );
 
   // No label above the field. It used to sit there, which pushed the field down
@@ -1129,6 +1309,18 @@ fileInput.addEventListener("change", () => {
 });
 
 /* ── boot ───────────────────────────────────────────────────────────────── */
+
+/**
+ * A read-only hook for the browser tests.
+ *
+ * They need to assert what the *document* holds. The alternatives are worse: the
+ * source panel is a debounced mirror of it, and the rendered pane is the renderer's
+ * opinion of it. This exposes neither a setter nor an event — nothing here can
+ * change the document.
+ */
+(window as unknown as { __airp: unknown }).__airp = {
+  document: () => airpDocument,
+};
 
 renderEditor();
 // The pane's head is filled before the first render, or the version and the

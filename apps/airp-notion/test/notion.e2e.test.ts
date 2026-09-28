@@ -71,6 +71,18 @@ async function addParagraph(page: Page): Promise<void> {
   await page.waitForSelector('.block[data-block-type="paragraph"]');
 }
 
+/** The document as it is in memory — what a save would write. */
+async function documentOf(page: Page): Promise<{
+  blocks: Record<string, unknown>[];
+  meta?: Record<string, unknown>;
+}> {
+  return (await page.evaluate(() =>
+    (
+      window as unknown as { __airp: { document: () => unknown } }
+    ).__airp.document()
+  )) as { blocks: Record<string, unknown>[]; meta?: Record<string, unknown> };
+}
+
 async function readSource(page: Page): Promise<{
   blocks: Record<string, unknown>[];
   meta?: Record<string, unknown>;
@@ -263,6 +275,75 @@ describe("airp-notion", () => {
     });
     await page.waitForSelector('.block[data-block-type="paragraph"]');
     expect((await readSource(page)).blocks[0]?.text).toBe("中文");
+
+    await page.close();
+  });
+
+  it("reorders within a parent by dragging the handle", async () => {
+    const { page } = await openPage();
+    for (const text of ["甲", "乙", "丙"]) {
+      await page.locator(".operation-line .field-input").click();
+      await page.keyboard.type(text);
+      await page.waitForSelector('.block[data-block-type="paragraph"]');
+    }
+    const order = async (): Promise<unknown[]> =>
+      (await documentOf(page)).blocks.map((block) => block.text);
+    expect(await order()).toEqual(["甲", "乙", "丙"]);
+
+    // Driven with explicit pointer events rather than the mouse: the browser's
+    // real input pipeline and the page's handlers are not ordered against each
+    // other, so a move can be observed before it has been processed.
+    const third = page.locator('.block[data-path="blocks/2"]');
+    await third.hover();
+    const grip = third.locator('.gutter-action[data-gutter="menu"]');
+    const gripBox = await grip.boundingBox();
+    const firstBox = await page
+      .locator('.block[data-path="blocks/0"]')
+      .boundingBox();
+    if (gripBox === null || firstBox === null) {
+      throw new Error("rows have no box to drag");
+    }
+    const x = gripBox.x + gripBox.width / 2;
+    await grip.dispatchEvent("pointerdown", {
+      bubbles: true,
+      clientX: x,
+      clientY: gripBox.y + gripBox.height / 2,
+      pointerId: 1,
+    });
+    await grip.dispatchEvent("pointermove", {
+      bubbles: true,
+      clientX: x,
+      clientY: firstBox.y + 2,
+      pointerId: 1,
+    });
+
+    // Mid-drag: the row is lifted and its siblings have slid aside. This is the
+    // part that makes it feel like reordering a table view rather than a jump.
+    expect(await page.locator('.block[data-dragging="true"]').count()).toBe(1);
+    const transforms = await page
+      .locator(".block")
+      .evaluateAll((rows) => rows.map((row) => row.style.transform));
+    expect(transforms.filter((value) => value !== "").length).toBeGreaterThan(
+      0
+    );
+
+    await grip.dispatchEvent("pointerup", {
+      bubbles: true,
+      clientX: x,
+      clientY: firstBox.y + 2,
+      pointerId: 1,
+    });
+
+    // The document really changed, not just the DOM.
+    expect(await order()).toEqual(["丙", "甲", "乙"]);
+    // A plain click on the grip still opens the block menu.
+    await page.locator('.block[data-path="blocks/0"]').hover();
+    await page
+      .locator(
+        '.block[data-path="blocks/0"] .gutter-action[data-gutter="menu"]'
+      )
+      .click();
+    expect(await page.locator(".block-menu button").count()).toBeGreaterThan(0);
 
     await page.close();
   });
