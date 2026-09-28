@@ -133,9 +133,8 @@ describe("airp-notion", () => {
 
   it("offers every block type in the / menu, not a shortlist", async () => {
     const { page } = await openPage();
-    await addParagraph(page);
-
-    await page.locator(".field-input").first().click();
+    // The operation line is the one place `/` opens the menu.
+    await page.locator(".operation-line .field-input").click();
     await page.keyboard.type("/");
 
     const menu = page.locator(".type-menu");
@@ -148,9 +147,7 @@ describe("airp-notion", () => {
 
   it("inserts a block through the / menu and lands the caret in it", async () => {
     const { page } = await openPage();
-    await addParagraph(page);
-
-    await page.locator(".field-input").first().click();
+    await page.locator(".operation-line .field-input").click();
     await page.keyboard.type("/blockquote");
 
     const menu = page.locator(".type-menu");
@@ -162,7 +159,9 @@ describe("airp-notion", () => {
 
     await page.keyboard.press("Enter");
 
-    // It appears in the editor…
+    // Nothing else did either: the operation line is not a block, so choosing a
+    // type adds one block, not two.
+    expect(await page.locator(".block").count()).toBe(1);
     expect(
       await page.locator('.block[data-block-type="blockquote"]').count()
     ).toBe(1);
@@ -344,6 +343,44 @@ describe("airp-notion", () => {
       )
       .click();
     expect(await page.locator(".block-menu button").count()).toBeGreaterThan(0);
+
+    await page.close();
+  });
+
+  it("leaves a slash alone in a block that already exists", async () => {
+    const { page } = await openPage();
+    await addParagraph(page);
+
+    await page.locator(".field-input").first().click();
+    await page.keyboard.type("a/b 与 /check");
+    await page.waitForTimeout(300);
+
+    // No menu: on an existing block a `/` is a slash. Its type is changed
+    // deliberately, through the handle's 转为.
+    expect(await page.locator(".type-menu").isHidden()).toBe(true);
+    expect((await documentOf(page)).blocks[0]?.text).toBe("a/b 与 /check");
+
+    await page.close();
+  });
+
+  it("converts a block in place, keeping what it says", async () => {
+    const { page } = await openPage();
+    await addParagraph(page);
+
+    await page.locator(".field-input").first().fill("这句话要留下来");
+    await page.waitForTimeout(200);
+
+    const line = page.locator(".block").first();
+    await line.hover();
+    await line.locator('.gutter-action[data-gutter="menu"]').click();
+    await page.locator(".block-menu button", { hasText: "转为" }).click();
+    await page.locator(".type-menu button", { hasText: "引用" }).click();
+
+    // A different type, the same words: a rebuild must not throw away content.
+    const blocks = (await documentOf(page)).blocks;
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]?.type).toBe("blockquote");
+    expect(blocks[0]?.text).toBe("这句话要留下来");
 
     await page.close();
   });

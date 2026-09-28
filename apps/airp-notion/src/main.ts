@@ -282,25 +282,16 @@ function chooseSlashEntry(entry: MenuEntry): void {
   }
 
   if (mode === "turn-into") {
-    // The line becomes the chosen type — how `/` behaves on a fresh line, and
-    // what the block menu's 「转为」 means anywhere.
-    commit(setAt(cleared, blockPath, born));
+    // 转为 rebuilds the block, so the author's words have to come with it —
+    // otherwise being told to use 转为 instead of `/` would mean losing text.
+    commit(
+      setAt(cleared, blockPath, carryText(born, readAt(cleared, blockPath)))
+    );
     focusFirstControl(blockPath);
     return;
   }
   commit(insertAt(cleared, parent, index + 1, born));
   focusFirstControl([...parent, index + 1]);
-}
-
-/** `/` on an untouched line turns it into something; anywhere else it adds a line. */
-function typeModeFor(blockPath: NodePath): TypeMode {
-  const block = readAt(airpDocument, blockPath);
-  const spec = isRecord(block)
-    ? readBlockSpec(String(block.type), VERSION)
-    : undefined;
-  return isRecord(block) && isBlankBlock(block, spec?.fields ?? [])
-    ? "turn-into"
-    : "insert-after";
 }
 
 /* ── the block menu behind the ⋮⋮ handle ─────────────────────────────────── */
@@ -389,6 +380,44 @@ function openBlockMenu(anchor: HTMLElement, blockPath: NodePath): void {
   );
   blockMenu.hidden = false;
   positionMenu(blockMenu, anchor);
+}
+
+/** The first field of a type that the author types text into. */
+function firstTextKey(block: Record<string, unknown>): string | undefined {
+  const fields = readBlockSpec(String(block.type), VERSION)?.fields ?? [];
+  return (
+    fields.find((field) => isTextShape(field.shape) && field.required)?.key ??
+    fields.find((field) => isTextShape(field.shape))?.key
+  );
+}
+
+/**
+ * Move a converted block's text onto the block that replaces it.
+ *
+ * 转为 rebuilds the block from the schema, and a rebuild throws its content away.
+ * Types do not share field names — a callout's prose is `body`, a paragraph's is
+ * `text` — so the value is carried by *position in the type's own shape*, which is
+ * the only thing the two have in common.
+ */
+function carryText(
+  born: Record<string, unknown>,
+  previous: unknown
+): Record<string, unknown> {
+  if (!isRecord(previous)) {
+    return born;
+  }
+  const from = firstTextKey(previous);
+  const to = firstTextKey(born);
+  const value = from === undefined ? undefined : previous[from];
+  if (
+    to !== undefined &&
+    typeof value === "string" &&
+    value.length > 0 &&
+    born[to] === ""
+  ) {
+    born[to] = value;
+  }
+  return born;
 }
 
 /** A block whose editable text is still untouched. */
@@ -585,7 +614,7 @@ function textControl(
   value: unknown,
   multi: boolean,
   onInput: (next: string) => void,
-  onSlash: (query: string, anchor: HTMLElement) => void,
+  onSlash?: (query: string, anchor: HTMLElement) => void,
   placeholder?: string
 ): HTMLElement {
   const field = multi
@@ -604,11 +633,15 @@ function textControl(
   }
   const handleInput = (): void => {
     const text = field.value;
-    const slash = SLASH_QUERY.exec(text);
-    if (slash === null) {
-      closeSlashMenu();
-    } else {
-      onSlash(slash[1] ?? "", field);
+    // Only a field that offers the command menu looks for a command. Elsewhere a
+    // `/` is a slash, and typing one must not pop anything up.
+    if (onSlash !== undefined) {
+      const slash = SLASH_QUERY.exec(text);
+      if (slash === null) {
+        closeSlashMenu();
+      } else {
+        onSlash(slash[1] ?? "", field);
+      }
     }
     onInput(text);
   };
@@ -652,16 +685,10 @@ function controlFor(
         (text) => {
           set(text);
         },
-        (query, anchor) => {
-          // The field is where the query is being typed; the line is what gets
-          // turned into something or inserted after.
-          const blockPath = path.slice(0, -1);
-          openSlashMenu(query, anchor, {
-            blockPath,
-            fieldPath: path,
-            mode: typeModeFor(blockPath),
-          });
-        },
+        // `/` belongs to the operation line. On a block that already exists, its
+        // type is changed deliberately — `⋮⋮` → 转为 — so a stray slash stays a
+        // slash and pops up nothing.
+        undefined,
         placeholder
       );
     case "boolean": {
