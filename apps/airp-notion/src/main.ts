@@ -227,17 +227,32 @@ interface MenuEntry {
 }
 
 const slashMenu = document.createElement("div");
-slashMenu.className = "slash-menu";
+slashMenu.className = "menu type-menu";
 slashMenu.hidden = true;
 document.body.append(slashMenu);
 
 let slashEntries: MenuEntry[] = [];
 let slashIndex = 0;
-let slashTarget: { blockPath: NodePath; fieldPath: NodePath } | undefined;
+let slashQuery = "";
+let slashAnchor: HTMLElement | undefined;
+/** What choosing a type does to the document. */
+type TypeMode = "insert-after" | "turn-into";
+
+interface TypeTarget {
+  /** The line the choice is relative to. */
+  blockPath: NodePath;
+  /** Where a `/query` is being typed, when the menu came from a field. */
+  fieldPath?: NodePath;
+  mode: TypeMode;
+}
+
+let slashTarget: TypeTarget | undefined;
 
 function closeSlashMenu(): void {
   slashMenu.hidden = true;
   slashTarget = undefined;
+  slashAnchor = undefined;
+  slashQuery = "";
 }
 
 function chooseSlashEntry(entry: MenuEntry): void {
@@ -246,37 +261,124 @@ function chooseSlashEntry(entry: MenuEntry): void {
   if (target === undefined) {
     return;
   }
-  const { blockPath, fieldPath } = target;
+  const { blockPath, fieldPath, mode } = target;
 
   // The `/query` the author typed to open the menu is scaffolding, not content:
-  // it is cleared before anything is inserted, or it ends up in the document.
-  const cleared = setAt(airpDocument, fieldPath, "");
-  const block = readAt(cleared, blockPath);
-  const spec = isRecord(block)
-    ? readBlockSpec(String(block.type), VERSION)
-    : undefined;
-  const blank = isRecord(block) && isBlankBlock(block, spec?.fields ?? []);
+  // it is cleared before anything else happens, or it ends up in the document.
+  const cleared =
+    fieldPath === undefined ? airpDocument : setAt(airpDocument, fieldPath, "");
+  const parent = blockPath.slice(0, -1);
+  const index = Number(blockPath.at(-1));
+  const born = createBlock(entry.type, VERSION, cleared);
 
-  if (blank) {
-    // An empty paragraph is a line the author is about to turn into something,
-    // which is how `/` behaves on a fresh line.
-    commit(
-      setAt(cleared, blockPath, createBlock(entry.type, VERSION, cleared))
-    );
+  if (mode === "turn-into") {
+    // The line becomes the chosen type — how `/` behaves on a fresh line, and
+    // what the block menu's 「转为」 means anywhere.
+    commit(setAt(cleared, blockPath, born));
     focusFirstControl(blockPath);
     return;
   }
-  const index = Number(blockPath.at(-1));
-  const parent = blockPath.slice(0, -1);
-  commit(
-    insertAt(
-      cleared,
-      parent,
-      index + 1,
-      createBlock(entry.type, VERSION, cleared)
-    )
-  );
+  commit(insertAt(cleared, parent, index + 1, born));
   focusFirstControl([...parent, index + 1]);
+}
+
+/** `/` on an untouched line turns it into something; anywhere else it adds a line. */
+function typeModeFor(blockPath: NodePath): TypeMode {
+  const block = readAt(airpDocument, blockPath);
+  const spec = isRecord(block)
+    ? readBlockSpec(String(block.type), VERSION)
+    : undefined;
+  return isRecord(block) && isBlankBlock(block, spec?.fields ?? [])
+    ? "turn-into"
+    : "insert-after";
+}
+
+/* ── the block menu behind the ⋮⋮ handle ─────────────────────────────────── */
+
+const blockMenu = document.createElement("div");
+blockMenu.className = "menu block-menu";
+blockMenu.hidden = true;
+document.body.append(blockMenu);
+
+function closeBlockMenu(): void {
+  blockMenu.hidden = true;
+}
+
+/**
+ * What Notion puts behind the handle: reorder, duplicate, convert, delete.
+ *
+ * The handle is also the drag grip. Reordering by dragging is separate work, so
+ * the moves live here as commands and the handle is useful today.
+ */
+function openBlockMenu(anchor: HTMLElement, blockPath: NodePath): void {
+  const parent = blockPath.slice(0, -1);
+  const index = Number(blockPath.at(-1));
+  const siblings = readAt(airpDocument, parent);
+  const last = Array.isArray(siblings) ? siblings.length - 1 : index;
+
+  const items: { label: string; run: () => void }[] = [];
+  if (index > 0) {
+    items.push({
+      label: "上移",
+      run: () => {
+        commit(moveAt(airpDocument, blockPath, index - 1));
+      },
+    });
+  }
+  if (index < last) {
+    items.push({
+      label: "下移",
+      run: () => {
+        commit(moveAt(airpDocument, blockPath, index + 1));
+      },
+    });
+  }
+  items.push(
+    {
+      label: "复制",
+      run: () => {
+        commit(
+          insertAt(
+            airpDocument,
+            parent,
+            index + 1,
+            withFreshAtIds(
+              readAt(airpDocument, blockPath),
+              usedAtIds(airpDocument)
+            )
+          )
+        );
+      },
+    },
+    {
+      label: "转为…",
+      run: () => {
+        openSlashMenu("", anchor, { blockPath, mode: "turn-into" });
+      },
+    },
+    {
+      label: "删除",
+      run: () => {
+        commit(removeAt(airpDocument, blockPath));
+      },
+    }
+  );
+
+  blockMenu.replaceChildren(
+    ...items.map((item) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = item.label;
+      button.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        closeBlockMenu();
+        item.run();
+      });
+      return button;
+    })
+  );
+  blockMenu.hidden = false;
+  positionMenu(blockMenu, anchor);
 }
 
 /** A block whose editable text is still untouched. */
@@ -296,9 +398,27 @@ function isBlankBlock(
 function openSlashMenu(
   query: string,
   anchor: HTMLElement,
-  fieldPath: NodePath
+  target: TypeTarget
 ): void {
-  const needle = query.toLowerCase();
+  slashTarget = target;
+  slashAnchor = anchor;
+  slashQuery = query;
+  if (!refreshSlashEntries()) {
+    return;
+  }
+  slashMenu.hidden = false;
+  positionMenu(slashMenu, anchor);
+}
+
+/**
+ * Recompute the list from the query.
+ *
+ * The menu is filterable whether it was opened by `/` (where the field owns the
+ * query) or by a line's `+` (where the menu owns it) — Notion's content menu can
+ * be typed into either way.
+ */
+function refreshSlashEntries(): boolean {
+  const needle = slashQuery.toLowerCase();
   // Every type the schema declares, not a shortlist: a menu that shows only some
   // of them makes the rest discoverable only by guessing at a query.
   slashEntries = menuGroups(listBlockTypes(VERSION))
@@ -307,19 +427,58 @@ function openSlashMenu(
       (entry) =>
         needle === "" ||
         entry.type.toLowerCase().includes(needle) ||
-        entry.label.includes(query)
+        entry.label.includes(slashQuery)
     );
   if (slashEntries.length === 0) {
     closeSlashMenu();
-    return;
+    return false;
   }
-  slashTarget = { blockPath: fieldPath.slice(0, -1), fieldPath };
   slashIndex = 0;
   renderSlashMenu();
-  slashMenu.hidden = false;
+  return true;
+}
+
+/** Put a menu under the control that opened it. */
+function positionMenu(menu: HTMLElement, anchor: HTMLElement): void {
   const box = anchor.getBoundingClientRect();
-  slashMenu.style.top = `${box.bottom + 4}px`;
-  slashMenu.style.left = `${box.left}px`;
+  menu.style.top = `${box.bottom + 4}px`;
+  menu.style.left = `${box.left}px`;
+}
+
+/** Whether the keystroke is going into something the author is typing in. */
+function isTextEntry(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
+  );
+}
+
+/**
+ * Let the menu own the keyboard when the query is not coming from a field.
+ *
+ * Opened by `/`, the field is what the author types into and it feeds the query.
+ * Opened by a line's `+`, nothing is focused but a button — so without this not
+ * one letter would reach the menu. Answers whether it consumed the keystroke.
+ */
+function typeIntoMenu(event: KeyboardEvent): boolean {
+  if (isTextEntry(event.target) || event.metaKey || event.ctrlKey) {
+    return false;
+  }
+  if (event.key === "Backspace") {
+    event.preventDefault();
+    slashQuery = slashQuery.slice(0, -1);
+    refreshSlashEntries();
+    return true;
+  }
+  if (event.key.length !== 1) {
+    return false;
+  }
+  event.preventDefault();
+  slashQuery += event.key;
+  refreshSlashEntries();
+  if (slashAnchor !== undefined) {
+    positionMenu(slashMenu, slashAnchor);
+  }
+  return true;
 }
 
 function renderSlashMenu(): void {
@@ -352,6 +511,9 @@ document.addEventListener("keydown", (event) => {
   if (slashMenu.hidden) {
     return;
   }
+  if (typeIntoMenu(event)) {
+    return;
+  }
   if (event.key === "ArrowDown" || event.key === "ArrowUp") {
     event.preventDefault();
     const step = event.key === "ArrowDown" ? 1 : -1;
@@ -375,9 +537,15 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("mousedown", (event) => {
-  if (!(slashMenu.hidden || slashMenu.contains(event.target as Node))) {
-    closeSlashMenu();
+  const target = event.target as Node;
+  // A click inside either menu is a command, not a dismissal — and 「转为…」 opens
+  // the type menu from inside the block menu, so dismissing on it would close the
+  // menu that was just opened.
+  if (slashMenu.contains(target) || blockMenu.contains(target)) {
+    return;
   }
+  closeSlashMenu();
+  closeBlockMenu();
 });
 
 /* ── the editor ─────────────────────────────────────────────────────────── */
@@ -465,9 +633,14 @@ function controlFor(
           set(text);
         },
         (query, anchor) => {
-          // The field is where the query is being typed; the block is what gets
+          // The field is where the query is being typed; the line is what gets
           // turned into something or inserted after.
-          openSlashMenu(query, anchor, path);
+          const blockPath = path.slice(0, -1);
+          openSlashMenu(query, anchor, {
+            blockPath,
+            fieldPath: path,
+            mode: typeModeFor(blockPath),
+          });
         },
         placeholder
       );
@@ -568,39 +741,21 @@ function summaryFor(value: unknown): HTMLElement {
   return summary;
 }
 
-function rowActions(path: NodePath, index: number): HTMLElement {
-  const actions = document.createElement("div");
-  actions.className = "row-actions";
-  const make = (label: string, title: string, run: () => void): void => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "row-action";
-    button.textContent = label;
-    button.title = title;
-    button.addEventListener("click", (event) => {
-      event.stopPropagation();
-      run();
-    });
-    actions.append(button);
-  };
-  const parent = path.slice(0, -1);
-  make("↑", "上移", () => {
-    if (index > 0) {
-      commit(moveAt(airpDocument, path, index - 1));
-    }
+/** One gutter button: quiet until the line is under the pointer. */
+function gutterAction(
+  glyph: string,
+  title: string,
+  open: (button: HTMLElement) => void
+): HTMLElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "gutter-action";
+  button.textContent = glyph;
+  button.title = title;
+  button.addEventListener("click", () => {
+    open(button);
   });
-  make("↓", "下移", () => {
-    commit(moveAt(airpDocument, path, index + 1));
-  });
-  make("⧉", "复制", () => {
-    const block = readAt(airpDocument, path);
-    const copy = withFreshAtIds(block, usedAtIds(airpDocument));
-    commit(insertAt(airpDocument, parent, index + 1, copy));
-  });
-  make("✕", "删除", () => {
-    commit(removeAt(airpDocument, path));
-  });
-  return actions;
+  return button;
 }
 
 /** Render one block: its chrome, its fields, and any blocks it contains. */
@@ -611,27 +766,40 @@ function renderBlock(
 ): HTMLElement {
   const node = isRecord(block) ? block : {};
   const type = typeof node.type === "string" ? node.type : "unknown";
-  const index = Number(path.at(-1));
   const row = document.createElement("article");
   row.className = "block";
   row.dataset.blockType = type;
   row.dataset.path = path.join("/");
   row.style.marginLeft = `${depth * 22}px`;
 
+  // The gutter is Notion's way in: `+` opens the content menu, `⋮⋮` the block
+  // menu. Both appear together under the pointer, so a line is added where the
+  // author is looking rather than only at the end of the document.
+  const gutter = document.createElement("div");
+  gutter.className = "block-gutter";
+  gutter.append(
+    gutterAction("＋", "点击添加内容块", (button) => {
+      openSlashMenu("", button, { blockPath: path, mode: "insert-after" });
+    }),
+    gutterAction("⋮⋮", "拖拽移动、打开菜单", (button) => {
+      openBlockMenu(button, path);
+    })
+  );
+
   const head = document.createElement("div");
   head.className = "block-head";
   const label = document.createElement("span");
   label.className = "block-label";
   label.textContent = blockMeta(type).label;
-  head.append(label, rowActions(path, index));
-  row.append(head);
+  head.append(label);
+  row.append(gutter, head);
 
   const spec = readBlockSpec(type, VERSION);
   // A fresh line says what can be done on it — the same hint Notion shows, and
   // the only place the author learns that `/` exists.
   const hint =
     isRecord(node) && isBlankBlock(node, spec?.fields ?? [])
-      ? "输入 / 唤起命令，或直接开始写"
+      ? "输入“/”唤起命令，或直接开始写"
       : undefined;
   for (const field of spec?.fields ?? []) {
     const value = node[field.key];

@@ -138,7 +138,8 @@ body {
 .editor {
   flex: 1 1 auto;
   min-width: 0;
-  padding: 24px 28px 80px;
+  /* Room on the left for the hover gutter. */
+  padding: 24px 28px 80px 74px;
   overflow-y: auto;
 }
 
@@ -322,7 +323,7 @@ select.field-input {
 
 /* ── the slash menu ─────────────────────────────────────────────────────── */
 
-.slash-menu {
+.menu {
   position: fixed;
   z-index: 60;
   display: flex;
@@ -337,7 +338,7 @@ select.field-input {
   box-shadow: 0 8px 24px rgb(15 15 15 / 12%);
 }
 
-.slash-menu button {
+.menu button {
   padding: 6px 10px;
   font: inherit;
   font-size: 13px;
@@ -349,8 +350,8 @@ select.field-input {
   border-radius: 6px;
 }
 
-.slash-menu button:hover,
-.slash-menu button.is-active {
+.menu button:hover,
+.menu button.is-active {
   background: var(--hover);
 }
 
@@ -411,4 +412,54 @@ select.field-input {
   background: #fff;
   border: 1px solid var(--accent);
   border-radius: 5px;
+}
+
+/* ── the hover gutter: `+` and `⋮⋮`, the way a line is added ─────────────── */
+
+/*
+ * Notion's way in. Both handles exist on every line and stay invisible until the
+ * pointer is on it, so the document reads as content rather than as a form — and
+ * a line can be added where the author is looking, not only at the end.
+ */
+.block-gutter {
+  position: absolute;
+  top: 0;
+  left: -46px;
+  display: flex;
+  gap: 1px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.block:hover > .block-gutter {
+  opacity: 1;
+}
+
+.gutter-action {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+}
+
+.gutter-action:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+/* The block's type, shown only while the line is under the pointer. */
+.block-label {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.block:hover .block-label {
+  opacity: 1;
 }

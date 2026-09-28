@@ -131,7 +131,7 @@ describe("airp-notion", () => {
     await page.locator(".field-input").first().click();
     await page.keyboard.type("/");
 
-    const menu = page.locator(".slash-menu");
+    const menu = page.locator(".type-menu");
     await menu.waitFor();
     // Typing a query used to be the only way to reach the types past the cap.
     expect(await menu.locator("button").count()).toBe(BLOCK_TYPES);
@@ -146,7 +146,7 @@ describe("airp-notion", () => {
     await page.locator(".field-input").first().click();
     await page.keyboard.type("/blockquote");
 
-    const menu = page.locator(".slash-menu");
+    const menu = page.locator(".type-menu");
     await menu.waitFor();
     expect(await menu.locator("button").count()).toBe(1);
     expect(await menu.locator("button").first().textContent()).toContain(
@@ -169,6 +169,37 @@ describe("airp-notion", () => {
     expect(inserted?.text).toBe("引用来源");
     // The `/blockquote` scaffolding must not survive as content.
     expect(JSON.stringify(source.blocks)).not.toContain("/blockquote");
+
+    await page.close();
+  });
+
+  it("adds a line from that line's own + handle", async () => {
+    const { page } = await openPage();
+    await addParagraph(page);
+    await page.locator(".field-input").first().fill("第一行");
+
+    const line = page.locator(".block").first();
+    await line.hover();
+    // The handle only exists on the line under the pointer — that is the design.
+    await line.locator('.gutter-action[title="点击添加内容块"]').click();
+
+    const menu = page.locator(".type-menu");
+    await menu.waitFor();
+    expect(await menu.locator("button").count()).toBe(BLOCK_TYPES);
+    // The menu the `+` opens is filterable too, so a type is reachable by name
+    // without a memorised order.
+    await page.keyboard.type("blockq");
+    expect(await menu.locator("button").count()).toBe(1);
+    await menu.locator("button").first().click();
+
+    // It lands below the line it was asked from, and the caret is in it.
+    const types = await page
+      .locator(".block")
+      .evaluateAll((rows) => rows.map((row) => row.dataset.blockType));
+    expect(types).toEqual(["paragraph", "blockquote"]);
+    await page.keyboard.type("引用来源");
+    const source = await readSource(page);
+    expect(JSON.stringify(source.blocks)).toContain("引用来源");
 
     await page.close();
   });
@@ -198,9 +229,11 @@ describe("airp-notion", () => {
     const { page, preview } = await openPage();
     await addParagraph(page);
 
+    // Deleting goes through the line's own handle now, the way it does in Notion.
     const block = page.locator(".block").first();
     await block.hover();
-    await block.locator('.row-action[title="删除"]').click();
+    await block.locator('.gutter-action[title="拖拽移动、打开菜单"]').click();
+    await page.locator(".block-menu button", { hasText: "删除" }).click();
 
     expect(await page.locator(".block").count()).toBe(0);
     expect(await page.locator("#editor > *").count()).toBe(1);
