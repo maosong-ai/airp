@@ -176,7 +176,7 @@ describe("airp-notion", () => {
     const line = page.locator(".block").first();
     await line.hover();
     // The handle only exists on the line under the pointer — that is the design.
-    await line.locator('.gutter-action[title="点击添加内容块"]').click();
+    await line.locator('.gutter-action[data-gutter="add"]').click();
 
     const menu = page.locator(".type-menu");
     await menu.waitFor();
@@ -233,6 +233,40 @@ describe("airp-notion", () => {
     await page.close();
   });
 
+  it("waits for an IME composition before the operation line becomes a block", async () => {
+    const { page } = await openPage();
+    const field = page.locator(".operation-line .field-input");
+
+    // Half-composed input: this is what a Chinese IME sends while the author is
+    // still choosing characters. Acting on it would commit "zhong" and replace the
+    // element being composed in, so the composition could never be finished.
+    await field.click();
+    await field.evaluate((element) => {
+      const input = element as HTMLInputElement;
+      input.value = "zhong";
+      input.dispatchEvent(
+        new CompositionEvent("compositionstart", { bubbles: true })
+      );
+      input.dispatchEvent(
+        new InputEvent("input", { bubbles: true, isComposing: true })
+      );
+    });
+    expect(await page.locator(".block").count()).toBe(0);
+
+    // Composition finished: now the text is text.
+    await field.evaluate((element) => {
+      const input = element as HTMLInputElement;
+      input.value = "中文";
+      input.dispatchEvent(
+        new CompositionEvent("compositionend", { bubbles: true, data: "中文" })
+      );
+    });
+    await page.waitForSelector('.block[data-block-type="paragraph"]');
+    expect((await readSource(page)).blocks[0]?.text).toBe("中文");
+
+    await page.close();
+  });
+
   it("renders the edit in the preview pane", async () => {
     const { page, preview } = await openPage();
     await addParagraph(page);
@@ -261,7 +295,7 @@ describe("airp-notion", () => {
     // Deleting goes through the line's own handle now, the way it does in Notion.
     const block = page.locator(".block").first();
     await block.hover();
-    await block.locator('.gutter-action[title="拖拽移动、打开菜单"]').click();
+    await block.locator('.gutter-action[data-gutter="menu"]').click();
     await page.locator(".block-menu button", { hasText: "删除" }).click();
 
     expect(await page.locator(".block").count()).toBe(0);

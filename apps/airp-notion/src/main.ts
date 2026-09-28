@@ -602,7 +602,7 @@ function textControl(
   if (multi) {
     (field as HTMLTextAreaElement).rows = 2;
   }
-  field.addEventListener("input", () => {
+  const handleInput = (): void => {
     const text = field.value;
     const slash = SLASH_QUERY.exec(text);
     if (slash === null) {
@@ -611,7 +611,17 @@ function textControl(
       onSlash(slash[1] ?? "", field);
     }
     onInput(text);
+  };
+  field.addEventListener("input", (event) => {
+    // An unfinished IME composition is not text yet. Acting on it would commit
+    // half a character — and on the operation line it would replace the very
+    // element being composed in, so typing Chinese would be impossible.
+    if ((event as InputEvent).isComposing) {
+      return;
+    }
+    handleInput();
   });
+  field.addEventListener("compositionend", handleInput);
   field.addEventListener("blur", () => {
     closeSlashMenu();
   });
@@ -755,11 +765,15 @@ function summaryFor(value: unknown): HTMLElement {
 function gutterAction(
   glyph: string,
   title: string,
-  open: (button: HTMLElement) => void
+  open: (button: HTMLElement) => void,
+  kind: "add" | "menu"
 ): HTMLElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "gutter-action";
+  // A stable name for the two handles: their tooltips carry prose (and the block
+  // type), so matching on those would break the moment the wording changes.
+  button.dataset.gutter = kind;
   button.textContent = glyph;
   button.title = title;
   button.addEventListener("click", () => {
@@ -788,21 +802,28 @@ function renderBlock(
   const gutter = document.createElement("div");
   gutter.className = "block-gutter";
   gutter.append(
-    gutterAction("＋", "点击添加内容块", (button) => {
-      openSlashMenu("", button, { blockPath: path, mode: "insert-after" });
-    }),
-    gutterAction("⋮⋮", "拖拽移动、打开菜单", (button) => {
-      openBlockMenu(button, path);
-    })
+    gutterAction(
+      "＋",
+      "点击添加内容块",
+      (button) => {
+        openSlashMenu("", button, { blockPath: path, mode: "insert-after" });
+      },
+      "add"
+    ),
+    gutterAction(
+      "⋮⋮",
+      `${blockMeta(type).label} · 拖拽移动、打开菜单`,
+      (button) => {
+        openBlockMenu(button, path);
+      },
+      "menu"
+    )
   );
 
-  const head = document.createElement("div");
-  head.className = "block-head";
-  const label = document.createElement("span");
-  label.className = "block-label";
-  label.textContent = blockMeta(type).label;
-  head.append(label);
-  row.append(gutter, head);
+  // No label above the field. It used to sit there, which pushed the field down
+  // by its own height and left the gutter handles floating above the line they
+  // belong to. The type now rides on the handle's tooltip instead.
+  row.append(gutter);
 
   const spec = readBlockSpec(type, VERSION);
   // A fresh line says what can be done on it — the same hint Notion shows, and
@@ -819,10 +840,10 @@ function renderBlock(
     const isBlocks = holdsBlocks(value);
     const wrap = document.createElement("div");
     wrap.className = "field";
-    const caption = document.createElement("span");
-    caption.className = "field-caption";
-    caption.textContent = `${field.key}${field.required ? " *" : ""}`;
-    wrap.append(caption);
+    // No caption above the control. `text *` read as a form field, pushed the
+    // control down out of line with the hover handles, and told the author
+    // nothing they could not see: whether a document is complete is validation's
+    // business, not an asterisk's.
 
     if (isBlocks && Array.isArray(value)) {
       const list = document.createElement("div");
@@ -891,9 +912,14 @@ function operationLine(): HTMLElement {
   const gutter = document.createElement("div");
   gutter.className = "block-gutter";
   gutter.append(
-    gutterAction("＋", "点击添加内容块", (button) => {
-      openSlashMenu("", button, { blockPath: blocksPath(), mode: "append" });
-    })
+    gutterAction(
+      "＋",
+      "点击添加内容块",
+      (button) => {
+        openSlashMenu("", button, { blockPath: blocksPath(), mode: "append" });
+      },
+      "add"
+    )
   );
 
   const field = textControl(
