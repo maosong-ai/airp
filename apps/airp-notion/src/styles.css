@@ -293,34 +293,6 @@ select.field-input {
   border-left: 1px solid var(--rule);
 }
 
-/* ── the always-available way in ────────────────────────────────────────── */
-
-/*
- * `/` needs a line to be typed on. This is the fallback for a pointer, and it is
- * how a document that has been emptied gets its first line back.
- */
-.add-block {
-  padding: 4px 10px;
-  margin-top: 10px;
-  font: inherit;
-  font-size: 12px;
-  color: var(--muted);
-  cursor: pointer;
-  background: none;
-  border: 1px dashed var(--rule);
-  border-radius: 6px;
-}
-
-/*
- * Deliberately inline-block at its natural size, in the empty document too: a
- * full-width button centres its own label, which reads as "centred" even when no
- * `auto` margin is involved.
- */
-.add-block:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
 /* ── the slash menu ─────────────────────────────────────────────────────── */
 
 .menu {
@@ -462,4 +434,23 @@ select.field-input {
 
 .block:hover .block-label {
   opacity: 1;
+}
+
+/* ── the operation line ─────────────────────────────────────────────────── */
+
+/*
+ * The trailing line that is not part of the document: always present, never
+ * rendered, and gone the moment it is used — because using it makes a real block.
+ */
+.operation-line {
+  position: relative;
+  padding: 3px 0 6px;
+}
+
+.operation-line:hover > .block-gutter {
+  opacity: 1;
+}
+
+.field-input::placeholder {
+  color: var(--muted);
 }

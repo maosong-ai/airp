@@ -58,15 +58,16 @@ async function openPage(): Promise<{ page: Page; preview: FrameLocator }> {
   });
   await page.goto(url);
   // The page opens empty, so the way in is what says it is ready.
-  await page.waitForSelector(".add-block");
+  await page.waitForSelector(".operation-line");
   const preview = page.frameLocator("#preview");
   await preview.locator("body").waitFor({ timeout: 60_000 });
   return { page, preview };
 }
 
-/** Add one block the way a pointer would, and wait for it to exist. */
+/** Add one block through the operation line's content menu. */
 async function addParagraph(page: Page): Promise<void> {
-  await page.locator(".add-block").click();
+  await page.locator(".operation-line .gutter-action").click();
+  await page.locator(".type-menu button", { hasText: "段落" }).click();
   await page.waitForSelector('.block[data-block-type="paragraph"]');
 }
 
@@ -88,22 +89,16 @@ describe("airp-notion", () => {
 
     expect(await page.locator(".block").count()).toBe(0);
     expect(await page.locator("#editor > *").count()).toBe(1);
-    expect(await page.locator(".add-block").isVisible()).toBe(true);
+    // Notion's answer to an empty page: one line is always there to work on.
+    expect(await page.locator(".operation-line").count()).toBe(1);
     expect(await preview.locator("[data-block-type]").count()).toBe(0);
 
-    // Left-aligned at its natural size, on an empty document as much as a full
-    // one. A button that stretched to the column would centre its own label and
-    // read as centred without a single `auto` margin in sight.
-    const widths = await page.evaluate(() => {
-      const button = document.querySelector(".add-block");
-      const editor = document.getElementById("editor");
-      return {
-        button: button?.getBoundingClientRect().width ?? 0,
-        editor: editor?.getBoundingClientRect().width ?? 0,
-      };
-    });
-    expect(widths.button).toBeGreaterThan(0);
-    expect(widths.button).toBeLessThan(widths.editor / 2);
+    // It says what can be done on it — the only place `/` is discoverable.
+    expect(
+      await page
+        .locator(".operation-line .field-input")
+        .getAttribute("placeholder")
+    ).toContain("/");
 
     // The pane's head names the protocol and the document's own timestamp; the
     // rendered document header (badge, title, meta row) stays hidden, because
@@ -204,6 +199,40 @@ describe("airp-notion", () => {
     await page.close();
   });
 
+  it("keeps a line to work on without writing it into the document", async () => {
+    const { page, preview } = await openPage();
+
+    // Zero blocks, yet there is still somewhere to type and a `+` to hover.
+    expect(await page.locator(".block").count()).toBe(0);
+    expect(await page.locator(".operation-line").count()).toBe(1);
+    // And it is *not* content: the pane renders the document, which is empty.
+    await expect
+      .poll(async () => await preview.locator("[data-block-type]").count(), {
+        timeout: 60_000,
+      })
+      .toBe(0);
+
+    // Typing on it makes a real block — typed one key at a time, because the
+    // first keystroke replaces the line under the caret and has to put it back.
+    await page.locator(".operation-line .field-input").click();
+    await page.keyboard.type("逐字输入");
+    await page.waitForSelector('.block[data-block-type="paragraph"]');
+
+    expect(await page.locator(".block").count()).toBe(1);
+    // A fresh operation line takes the old one's place, so there is always one.
+    expect(await page.locator(".operation-line").count()).toBe(1);
+    expect((await readSource(page)).blocks[0]?.text).toBe("逐字输入");
+
+    // Now that it is content, the pane renders it.
+    await expect
+      .poll(async () => await preview.locator("body").innerText(), {
+        timeout: 60_000,
+      })
+      .toContain("逐字输入");
+
+    await page.close();
+  });
+
   it("renders the edit in the preview pane", async () => {
     const { page, preview } = await openPage();
     await addParagraph(page);
@@ -237,7 +266,7 @@ describe("airp-notion", () => {
 
     expect(await page.locator(".block").count()).toBe(0);
     expect(await page.locator("#editor > *").count()).toBe(1);
-    expect(await page.locator(".add-block").isVisible()).toBe(true);
+    expect(await page.locator(".operation-line").count()).toBe(1);
     await expect
       .poll(async () => await preview.locator("[data-block-type]").count(), {
         timeout: 60_000,

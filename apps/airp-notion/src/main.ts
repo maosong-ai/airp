@@ -236,7 +236,7 @@ let slashIndex = 0;
 let slashQuery = "";
 let slashAnchor: HTMLElement | undefined;
 /** What choosing a type does to the document. */
-type TypeMode = "insert-after" | "turn-into";
+type TypeMode = "append" | "insert-after" | "turn-into";
 
 interface TypeTarget {
   /** The line the choice is relative to. */
@@ -270,6 +270,16 @@ function chooseSlashEntry(entry: MenuEntry): void {
   const parent = blockPath.slice(0, -1);
   const index = Number(blockPath.at(-1));
   const born = createBlock(entry.type, VERSION, cleared);
+
+  if (mode === "append") {
+    // The operation line asked for this: it is not a block, so there is nothing
+    // to clear and nothing to replace — the block simply joins the end.
+    const blocks = readAt(cleared, blocksPath());
+    const at = Array.isArray(blocks) ? blocks.length : 0;
+    commit(insertAt(cleared, blocksPath(), at, born));
+    focusFirstControl(["blocks", at]);
+    return;
+  }
 
   if (mode === "turn-into") {
     // The line becomes the chosen type — how `/` behaves on a fresh line, and
@@ -799,7 +809,7 @@ function renderBlock(
   // the only place the author learns that `/` exists.
   const hint =
     isRecord(node) && isBlankBlock(node, spec?.fields ?? [])
-      ? "输入“/”唤起命令，或直接开始写"
+      ? OPERATION_HINT
       : undefined;
   for (const field of spec?.fields ?? []) {
     const value = node[field.key];
@@ -832,49 +842,95 @@ function renderBlock(
 }
 
 function renderEditor(): void {
-  // Before any early return: an empty document still has a name.
   titleEl.textContent = titleOf(airpDocument);
   const blocks = readAt(airpDocument, blocksPath());
-  if (!Array.isArray(blocks)) {
-    editorEl.replaceChildren();
-    return;
-  }
-  const add = document.createElement("button");
-  add.type = "button";
-  add.className = "add-block";
-  add.textContent = "＋ 添加块";
-  add.addEventListener("click", () => {
-    const index = blockCount();
-    commit(
-      insertAt(
-        airpDocument,
-        blocksPath(),
-        index,
-        createBlock("paragraph", VERSION, airpDocument)
-      )
-    );
-    focusFirstControl(["blocks", index]);
-  });
-
-  if (blocks.length === 0) {
-    // An empty page is allowed. With nothing to edit there is nothing for `/` to
-    // be typed on, so the only thing left on screen is the way back in.
-    editorEl.replaceChildren(add);
-    return;
-  }
-
   editorEl.replaceChildren(
-    ...blocks.map((block, index) => renderBlock(block, ["blocks", index], 0)),
-    add
+    ...(Array.isArray(blocks)
+      ? blocks.map((block, index) => renderBlock(block, ["blocks", index], 0))
+      : []),
+    // Always last and always present — see `operationLine`.
+    operationLine()
   );
 }
 
 /** Put the caret in a block's first text control, after a structural change. */
-function focusFirstControl(path: NodePath): void {
+function focusFirstControl(path: NodePath, toEnd = false): void {
   const target = editorEl.querySelector<HTMLElement>(
     `[data-path="${path.join("/")}"] .field-input`
   );
   target?.focus();
+  if (
+    toEnd &&
+    (target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement)
+  ) {
+    const end = target.value.length;
+    target.setSelectionRange(end, end);
+  }
+}
+
+/** What an empty line says, whether it is a block or the operation line. */
+const OPERATION_HINT = "输入“/”唤起命令，或直接开始写";
+
+/**
+ * The trailing line that is always there and is **not** part of the document.
+ *
+ * Notion never shows a page with nothing to type on. This is how: a line exists
+ * whether or not the document has content, so there is always a `+` to hover and
+ * a `/` to type even at zero blocks.
+ *
+ * It is an affordance, not a block. It is in no document, the preview does not
+ * render it, and it becomes a real paragraph the moment it is typed on or used to
+ * add something — which is why an empty document stays genuinely empty.
+ */
+function operationLine(): HTMLElement {
+  const row = document.createElement("article");
+  row.className = "operation-line";
+  row.dataset.operationLine = "true";
+
+  const gutter = document.createElement("div");
+  gutter.className = "block-gutter";
+  gutter.append(
+    gutterAction("＋", "点击添加内容块", (button) => {
+      openSlashMenu("", button, { blockPath: blocksPath(), mode: "append" });
+    })
+  );
+
+  const field = textControl(
+    "",
+    false,
+    (text) => {
+      // A slash command is scaffolding for the menu, not text to keep.
+      if (!SLASH_QUERY.test(text)) {
+        materializeParagraph(text);
+      }
+    },
+    (query, anchor) => {
+      openSlashMenu(query, anchor, { blockPath: blocksPath(), mode: "append" });
+    },
+    OPERATION_HINT
+  );
+
+  const wrap = document.createElement("div");
+  wrap.className = "field";
+  wrap.append(field);
+  row.append(gutter, wrap);
+  return row;
+}
+
+/** The operation line stops being an affordance and becomes a real paragraph. */
+function materializeParagraph(text: string): void {
+  const index = blockCount();
+  const born = createBlock("paragraph", VERSION, airpDocument);
+  const spec = readBlockSpec("paragraph", VERSION);
+  const key =
+    spec?.fields.find((field) => isTextShape(field.shape) && field.required)
+      ?.key ?? "text";
+  born[key] = text;
+  commit(insertAt(airpDocument, blocksPath(), index, born));
+  // The line the author was typing on was just replaced by a real one, so the
+  // caret has to be put back where it was.
+  focusFirstControl(["blocks", index], true);
 }
 
 /* ── the document's name ────────────────────────────────────────────────── */
