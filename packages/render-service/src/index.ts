@@ -16,9 +16,40 @@
  * The Renderer's Node entry is TypeScript *source*, which plain Node cannot
  * import, so the caller supplies a loader — Vite's SSR module runner, which
  * transpiles workspace TypeScript. `./vite.ts` mounts this on a dev server.
+ *
+ * ## Keeping in step with the Renderer
+ *
+ * Most Renderer changes need nothing here, because this module does not know what
+ * a block is. A new block type, a different layout, another `targetOptions` key,
+ * a new schema version — all of it flows through untouched. That is the point of
+ * forwarding `targetOptions` verbatim instead of modelling them.
+ *
+ * Three things can still need attention, and each one announces itself:
+ *
+ * - **A new render target** breaks the build. `RenderServiceTarget` is the
+ *   Renderer's own `RenderTarget`, so a target added upstream is a compile error
+ *   here rather than a target no host can ask for.
+ * - **A changed result shape** fails *the contract this service consumes*, which
+ *   pins the `value.files[].body` and `diagnostics` this module reads.
+ * - **A changed byte** fails conformance, which renders every fixture through
+ *   both this service and `renderDocument` and compares the output.
+ *
+ * The one manual step is the build. The service loads the Renderer's *compiled*
+ * Node entry, so a change that was never rebuilt renders yesterday's bytes with
+ * nothing on screen to show for it. Keep
+ * `pnpm --filter @airp/renderer-target-html dev` running, or rebuild once — and
+ * `renderServicePlugin({ rendererRoot })` says so out loud when you forget.
  */
 
-export type RenderServiceTarget = "html" | "markdown";
+import type { RenderTarget } from "@airp/renderer";
+
+/**
+ * The targets this service forwards to.
+ *
+ * Derived rather than restated: the Renderer owns the list, and a transport that
+ * listed its own copy would be quietly wrong the day a target is added.
+ */
+export type RenderServiceTarget = RenderTarget;
 
 export interface RenderServiceRequest {
   document: unknown;

@@ -7,7 +7,9 @@
  * Renderer. Keeping it in the Vite config means no second process to start.
  */
 
+import { readdirSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import path from "node:path";
 import {
   RENDER_SERVICE_PATH,
   type RenderDocumentLoader,
@@ -99,9 +101,81 @@ function handlerWith(load: RenderDocumentLoader): Middleware {
  * middleware-mode Vite server of its own — created on the first request and kept
  * for the life of the process — whose only job is that module runner.
  */
-export function renderServicePlugin(): Plugin {
+export interface RenderServicePluginOptions {
+  /**
+   * The Renderer's package directory, relative to the Vite root, when it is a
+   * sibling in this repository.
+   *
+   * The service renders with the Renderer's *compiled* Node entry, so a change
+   * that was never rebuilt renders yesterday's bytes and looks entirely normal.
+   * Given this path the plugin compares the two and warns. Leave it out once the
+   * Renderer arrives as a published package: there is nothing to compare, and
+   * bumping the version is the sync.
+   */
+  rendererRoot?: string;
+}
+
+/** The newest modification time under a directory, or 0 when it is absent. */
+function newestMtime(directory: string): number {
+  let newest = 0;
+  try {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const full = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        newest = Math.max(newest, newestMtime(full));
+        continue;
+      }
+      try {
+        newest = Math.max(newest, statSync(full).mtimeMs);
+      } catch {
+        // A file that vanished mid-walk is not worth a warning.
+      }
+    }
+  } catch {
+    return 0;
+  }
+  return newest;
+}
+
+/** Say so when the Renderer's compiled entry is older than its sources. */
+function warnWhenRendererIsStale(
+  root: string | undefined,
+  viteRoot: string,
+  logger: ViteDevServer["config"]["logger"]
+): void {
+  if (root === undefined) {
+    return;
+  }
+  const packageRoot = path.resolve(viteRoot, root);
+  const sources = newestMtime(path.join(packageRoot, "src"));
+  const compiled = newestMtime(path.join(packageRoot, "dist"));
+  if (sources === 0 || compiled === 0 || sources <= compiled) {
+    return;
+  }
+  logger.warn(
+    [
+      "[airp] 渲染器的构建产物比源码旧 —— 服务加载的是 dist，现在渲染的是旧字节。",
+      `       ${packageRoot}`,
+      "       执行 pnpm --filter @airp/renderer-target-html build，",
+      "       或常驻 pnpm --filter @airp/renderer-target-html dev。",
+    ].join("\n")
+  );
+}
+
+export function renderServicePlugin(
+  options: RenderServicePluginOptions = {}
+): Plugin {
+  const freshness = (server: ViteDevServer): void => {
+    warnWhenRendererIsStale(
+      options.rendererRoot,
+      server.config.root,
+      server.config.logger
+    );
+  };
+
   return {
     configurePreviewServer(server) {
+      freshness(server as unknown as ViteDevServer);
       let runner: Promise<ViteDevServer> | undefined;
       server.middlewares.use(
         handlerWith(async () => {
@@ -119,6 +193,7 @@ export function renderServicePlugin(): Plugin {
       );
     },
     configureServer(server) {
+      freshness(server);
       server.middlewares.use(handlerWith(ssrLoader(server)));
     },
     name: "airp-render-service",

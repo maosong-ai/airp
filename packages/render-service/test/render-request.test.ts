@@ -183,6 +183,33 @@ describe("renderRequest", () => {
   });
 });
 
+/**
+ * The whole of what this service depends on, pinned in one place.
+ *
+ * Everything else about the Renderer can change without touching this package —
+ * block types, layout, `targetOptions`, schema versions all flow through. These
+ * few reads are the exception, so when the Renderer reshapes its result the
+ * failure lands here, naming the contract, instead of surfacing in a browser as a
+ * canvas that quietly shows nothing.
+ */
+describe("the contract this service consumes", () => {
+  it("is still the shape the Renderer answers with", async () => {
+    const rendered = await renderDocument(
+      readDocument(documentPath("valid", "minimal-1.1.0.airp.json")) as never,
+      "html",
+      { targetOptions: {} }
+    );
+
+    expect(typeof rendered.ok).toBe("boolean");
+    expect(Array.isArray(rendered.diagnostics)).toBe(true);
+    if (!rendered.ok) {
+      throw new Error("a minimal document has to render");
+    }
+    expect(Array.isArray(rendered.value.files)).toBe(true);
+    expect(typeof rendered.value.files[0]?.body).toBe("string");
+  }, 120_000);
+});
+
 describe("readJsonBody", () => {
   async function* chunks(...parts: Uint8Array[]): AsyncIterable<Uint8Array> {
     yield* parts;

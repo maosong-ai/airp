@@ -24,7 +24,7 @@ loader              → protocol | utils | diagnostics
 writer              → utils
 protocol            → utils | diagnostics
 diagnostics         → utils（类型级）
-render-service      → renderer/node/render（经宿主注入的 loader 懒加载；测试直接调用）| vite（peer）
+render-service      → renderer/node/render（经宿主注入的 loader 懒加载；测试直接调用）| renderer（仅类型：复用 RenderTarget 与诊断形状）| vite（peer）
 airp-notion（web）  → loader | validate | protocol | utils | diagnostics（浏览器面，仅 `.` 入口）
 airp-notion 渲染预览 → render-service/vite（Node 侧 harness，不在浏览器面内）
 
