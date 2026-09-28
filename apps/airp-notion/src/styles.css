@@ -476,3 +476,34 @@ body.is-dragging {
   cursor: grabbing;
   user-select: none;
 }
+
+/* ── the pane previews the document, not the pane ────────────────────────── */
+
+/*
+ * The frame is laid out at the width the Renderer is designed around and scaled
+ * down to the pane, so the document is composed at a fixed width instead of being
+ * re-flowed to whatever the pane happens to be.
+ *
+ * A pane is narrower than any window a report is read in, and the markup is
+ * responsive: at 44% of a 1440px window it was 633px — seven pixels under the
+ * Renderer's `sm` breakpoint — so the pane showed the phone layout. Sizing the
+ * frame to the pane could only ever be "faithful for that width"; this is faithful
+ * to the document.
+ */
+.preview-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.preview-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 960px;
+  height: 100%;
+  background: #fff;
+  border: 0;
+  transform-origin: top left;
+}

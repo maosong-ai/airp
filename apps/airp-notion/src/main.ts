@@ -194,6 +194,37 @@ let previewTimer: number | undefined;
 let previewSeq = 0;
 
 /**
+ * The width the Renderer's layout is designed around.
+ *
+ * Its content column is `max-w-4xl` (896px) inside `sm:px-6` padding, so at 960px
+ * the column has reached its maximum and the layout stops changing — wider only
+ * adds margin. That makes 960 the document as designed, and the number worth
+ * previewing at.
+ */
+const PREVIEW_WIDTH = 960;
+
+/**
+ * Lay the frame out at the design width, then scale it into the pane.
+ *
+ * The bytes were never the problem: the pane receives exactly what `airp-render`
+ * writes. The *composition* was — the Renderer's markup is responsive, so a pane
+ * of another width is a preview of another document.
+ */
+function fitPreview(): void {
+  const body = previewFrame.parentElement;
+  if (body === null || body.clientWidth === 0) {
+    return;
+  }
+  const scale = body.clientWidth / PREVIEW_WIDTH;
+  previewFrame.style.transform = `scale(${scale})`;
+  // The frame lays out at the design width, so it must be taller than the pane by
+  // the same factor to fill it once scaled.
+  previewFrame.style.height = `${body.clientHeight / scale}px`;
+}
+
+window.addEventListener("resize", fitPreview);
+
+/**
  * What the pane's own head says: which protocol the document is, and when it was
  * last saved. Both come from the document, not from the render.
  */
@@ -1487,6 +1518,7 @@ fileInput.addEventListener("change", () => {
 };
 
 renderEditor();
+fitPreview();
 // The pane's head is filled before the first render, or the version and the
 // timestamp would stay blank until the first edit.
 renderStamps();

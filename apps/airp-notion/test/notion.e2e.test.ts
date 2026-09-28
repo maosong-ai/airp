@@ -549,6 +549,13 @@ describe("airp-notion", () => {
         .evaluate((element) => getComputedStyle(element).fontSize)
     ).toBe("16px");
 
+    // Composed at the width the Renderer is designed around and then scaled into
+    // the pane, so the pane's own width no longer decides the layout: the document
+    // in the preview is the document, whatever size the window is.
+    expect(
+      await preview.locator("html").evaluate((element) => element.clientWidth)
+    ).toBe(960);
+
     await page.close();
   });
 
