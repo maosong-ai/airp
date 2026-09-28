@@ -18,6 +18,7 @@ const NODE_BUILTIN_RE = /from\s+["']node:/;
  * Dual packages are listed at their `src/` root; walk skips `node/` dirs.
  */
 const CROSS_PLATFORM_SRC = [
+  "apps/airp-notion/src",
   "packages/protocol/src",
   "packages/validate/src",
   "packages/renderer/src",

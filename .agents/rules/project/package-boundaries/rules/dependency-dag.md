@@ -7,7 +7,7 @@
 只允许下列边（箭头 =「可依赖」）：
 
 ```
-apps/*  → loader | writer | validate | validate/node | renderer | renderer/node | protocol | utils | diagnostics
+apps/*  → loader | writer | validate | validate/node | renderer | renderer/node | protocol | utils | diagnostics | render-service
 
 renderer（`.`）     → renderer-target-* | renderer-contract | renderer-shared | protocol | utils | diagnostics
 renderer/node       → renderer（`.`）| html-dist / FromUrl 热更新助手（无静态 html 包 import）
@@ -24,6 +24,9 @@ loader              → protocol | utils | diagnostics
 writer              → utils
 protocol            → utils | diagnostics
 diagnostics         → utils（类型级）
+render-service      → renderer/node/render（经宿主注入的 loader 懒加载；测试直接调用）| vite（peer）
+airp-notion（web）  → loader | validate | protocol | utils | diagnostics（浏览器面，仅 `.` 入口）
+airp-notion 渲染预览 → render-service/vite（Node 侧 harness，不在浏览器面内）
 
 test-kit / repo-guard → 旁路；不被业务包依赖
 ```
@@ -34,7 +37,8 @@ test-kit / repo-guard → 旁路；不被业务包依赖
 |----------|-----|
 | isomorphic | protocol, renderer-contract, renderer-shared, renderer-target-markdown, diagnostics（主面）；validate（`.`，无 Mermaid） |
 | dual | utils, loader, writer, validate, renderer, renderer-target-html（`.` 同构壳；`./node` 含 Mermaid） |
-| node | validate-cli, renderer-cli, renderer-vscode, test-kit, repo-guard, typescript-config |
+| node | validate-cli, renderer-cli, renderer-vscode, render-service, test-kit, repo-guard, typescript-config |
+| web | airp-notion（静态站点；浏览器面只依赖各包 `.` 入口，另有一个 Node 侧渲染服务） |
 
 ## 运行时 API 与入口
 

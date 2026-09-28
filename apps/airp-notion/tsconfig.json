@@ -1,0 +1,9 @@
+{
+  "extends": "@airp/typescript-config/library-dom.json",
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "vite.config.ts",
+    "vitest.config.ts"
+  ]
+}

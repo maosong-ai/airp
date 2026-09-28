@@ -27,12 +27,14 @@
 | `packages/renderer-target-html` | `@airp/renderer-target-html` | dual | `.`：AIRP 积木块 HTML + 阅读器壳；`./node`：Mermaid→SVG |
 | `packages/renderer-target-markdown` | `@airp/renderer-target-markdown` | isomorphic | Markdown 降级可读输出 |
 | `packages/renderer` | `@airp/renderer` | dual | 封闭 `rendererTargetCatalog`（`html` \| `markdown`）、编排入口 |
+| `packages/render-service` | `@airp/render-service` | node | 共享渲染服务：宿主经 loader 调 Renderer 的 Node 管线；`./vite` 挂到 dev / preview |
 | `packages/test-kit` | `@airp/test-kit` | node | 测试共享 case、fixture 路径与 runner |
 | `packages/repo-guard` | `@airp/repo-guard` | node | 仓库门禁脚本 |
 | `packages/typescript-config` | `@airp/typescript-config` | node | 共享 TypeScript preset |
 | `apps/validate-cli` | `@airp/validate-cli` | node | CLI：读路径 → validate/node → 人话/JSON；bin `airp-validate` |
 | `apps/renderer-cli` | `@airp/renderer-cli` | node | CLI：`export` / `watch` / `worker`；bin `airp-render` |
 | `apps/renderer-vscode` | `airp-renderer-vscode` | node | VS Code：Custom Editor 渲染单个 `*.airp.json` |
+| `apps/airp-notion` | `airp-notion` | web | 浏览器宿主：无侧栏的 Notion 式客户端（`/` 调起 46 块 + 就地编辑 + 右侧渲染预览） |
 
 † diagnostics 主面同构；类型级可依赖 utils。
 

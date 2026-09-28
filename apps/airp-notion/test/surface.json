@@ -1,0 +1,5 @@
+{
+  "tiers": ["Unit", "E2E"],
+  "caseDriven": false,
+  "usesFixtures": true
+}

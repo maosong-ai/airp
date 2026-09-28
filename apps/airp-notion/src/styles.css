@@ -1,0 +1,344 @@
+/*
+ * Two panes and no sidebar: the editable column on the left, the Renderer's own
+ * output on the right. The editor is deliberately quiet — the block's type is a
+ * small label, and its actions only appear under the pointer.
+ */
+
+:root {
+  --ink: #37352f;
+  --muted: #8f8b85;
+  --rule: #ecebea;
+  --accent: #2383e2;
+  --hover: #f1f1ef;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/*
+ * `hidden` has to win. The menus below set `display: flex`, and an author
+ * `display` rule overrides the `[hidden] { display: none }` a browser applies on
+ * its own — which left both menus on screen after they were closed.
+ */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  color: var(--ink);
+  background: #fff;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ── top bar ─────────────────────────────────────────────────────────────── */
+
+.bar {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+  align-items: center;
+  height: 40px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.bar-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.bar-state,
+.preview-state {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.bar-state.is-error,
+.preview-state.is-error {
+  color: #c0392b;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.bar-button {
+  padding: 2px 8px;
+  font: inherit;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+}
+
+.bar-button:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.bar-menu {
+  position: absolute;
+  top: 36px;
+  right: 14px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  min-width: 168px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgb(15 15 15 / 10%);
+}
+
+.bar-menu button {
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+}
+
+.bar-menu button:hover {
+  background: var(--hover);
+}
+
+/* ── panes ───────────────────────────────────────────────────────────────── */
+
+.panes {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.editor {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 24px 28px 80px;
+  overflow-y: auto;
+}
+
+.preview {
+  display: flex;
+  flex: 0 0 44%;
+  flex-direction: column;
+  min-width: 320px;
+  background: #fbfbfa;
+  border-left: 1px solid var(--rule);
+}
+
+.preview-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--rule);
+}
+
+.preview-frame {
+  flex: 1 1 auto;
+  width: 100%;
+  background: #fff;
+  border: 0;
+}
+
+/* ── blocks ──────────────────────────────────────────────────────────────── */
+
+.block {
+  position: relative;
+  padding: 3px 0 6px;
+  border-left: 2px solid transparent;
+}
+
+.block:hover {
+  border-left-color: var(--rule);
+}
+
+.block-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 18px;
+}
+
+.block-label {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.row-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.block:hover > .block-head > .row-actions {
+  opacity: 1;
+}
+
+.row-action {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.row-action:hover {
+  color: var(--ink);
+  background: var(--hover);
+  border-color: var(--rule);
+}
+
+.field {
+  margin-top: 2px;
+}
+
+.field-caption {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.field-input {
+  width: 100%;
+  padding: 3px 6px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+}
+
+.field-input:hover {
+  border-color: var(--rule);
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+textarea.field-input {
+  min-height: 44px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+select.field-input {
+  width: auto;
+  min-width: 120px;
+}
+
+.field-summary {
+  padding: 3px 6px;
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px dashed var(--rule);
+  border-radius: 5px;
+}
+
+.item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.nested {
+  padding-left: 4px;
+  border-left: 1px solid var(--rule);
+}
+
+/* ── the slash menu ─────────────────────────────────────────────────────── */
+
+.slash-menu {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  max-height: 320px;
+  padding: 4px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgb(15 15 15 / 12%);
+}
+
+.slash-menu button {
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+}
+
+.slash-menu button:hover,
+.slash-menu button.is-active {
+  background: var(--hover);
+}
+
+/* ── source ─────────────────────────────────────────────────────────────── */
+
+.source {
+  flex: 0 0 auto;
+  height: 34vh;
+  padding: 12px 16px;
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--ink);
+  white-space: pre;
+  resize: vertical;
+  background: #fcfcfb;
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
