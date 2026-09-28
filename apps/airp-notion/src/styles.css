@@ -523,7 +523,12 @@ body.is-dragging {
   border-left: 2px solid transparent;
 }
 
-.block:hover,
-.operation-line:hover {
+/*
+ * The bar is a block's, and only a block's. The operation line keeps the
+ * transparent border so the two boxes are the same width — typing must not shift
+ * the text by two pixels — but it never paints it: hovering the line must not make
+ * it look like the block it has not become yet.
+ */
+.block:hover {
   border-left-color: var(--rule);
 }

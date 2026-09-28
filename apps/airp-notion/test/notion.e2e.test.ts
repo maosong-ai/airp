@@ -541,6 +541,31 @@ describe("airp-notion", () => {
     await page.close();
   });
 
+  it("does not paint the block bar beside the operation line", async () => {
+    const { page } = await openPage();
+
+    const bar = async (selector: string): Promise<string> =>
+      await page.evaluate(
+        (sel) =>
+          getComputedStyle(document.querySelector(sel) as Element)
+            .borderLeftColor,
+        selector
+      );
+
+    // Hovering the line must not make it look like a block: same width, no colour.
+    const lineBar = await bar(".operation-line");
+    await page.locator(".operation-line").hover();
+    expect(await bar(".operation-line")).toBe(lineBar);
+
+    // The bar is still the block's, and it still appears on hover.
+    await addParagraph(page);
+    const blockBar = await bar(".block");
+    await page.locator(".block").first().hover();
+    expect(await bar(".block")).not.toBe(blockBar);
+
+    await page.close();
+  });
+
   it("renders the edit in the preview pane", async () => {
     const { page, preview } = await openPage();
     await addParagraph(page);
