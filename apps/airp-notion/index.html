@@ -22,7 +22,7 @@
         </button>
         <div class="bar-menu" id="page-menu" hidden>
           <button type="button" data-action="import">导入 JSON…</button>
-          <button type="button" data-action="export">下载 JSON</button>
+          <button type="button" data-action="export">保存</button>
           <button type="button" data-action="source">看源码</button>
         </div>
       </header>
@@ -32,7 +32,9 @@
 
         <aside class="preview" aria-label="渲染预览">
           <div class="preview-head">
-            <span>渲染预览</span>
+            <span class="preview-name">渲染预览</span>
+            <span class="preview-version" id="preview-version"></span>
+            <span class="spacer"></span>
             <span class="preview-state" id="preview-state"></span>
           </div>
           <iframe class="preview-frame" id="preview" title="渲染预览"></iframe>

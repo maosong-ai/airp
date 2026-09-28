@@ -41,6 +41,7 @@ import {
   listBlockTypes,
   readBlockSpec,
 } from "./schema.js";
+import { formatStamp, lastUpdatedOf, withUpdatedAt } from "./stamp.js";
 
 const VERSION = (supportedSchemaVersions.at(-1) ?? "1.1.0") as SchemaVersion;
 const STARTER_BLOCKS = ["lead", "heading", "paragraph", "callout"] as const;
@@ -59,6 +60,7 @@ function byId<T extends HTMLElement>(id: string): T {
 const editorEl = byId<HTMLElement>("editor");
 const previewFrame = byId<HTMLIFrameElement>("preview");
 const previewState = byId<HTMLElement>("preview-state");
+const previewVersion = byId<HTMLElement>("preview-version");
 const stateEl = byId<HTMLElement>("state");
 const titleEl = byId<HTMLElement>("title");
 const sourceArea = byId<HTMLTextAreaElement>("source");
@@ -101,26 +103,6 @@ function blockCount(): number {
 }
 
 /**
- * An editor whose only way in is a field *inside* a block cannot afford an empty
- * document: with no blocks there is nothing to type `/` into, and the author is
- * locked out of their own page.
- *
- * Notion solves it the same way — an "empty" page is one empty line, not zero
- * lines, and deleting the last line leaves a fresh empty one. So the invariant is
- * enforced here, at the single place every change passes through, rather than at
- * each caller that could empty the list.
- */
-function ensureEditable(document_: unknown): unknown {
-  const blocks = readAt(document_, blocksPath());
-  if (Array.isArray(blocks) && blocks.length > 0) {
-    return document_;
-  }
-  return setAt(document_, blocksPath(), [
-    createBlock("paragraph", VERSION, document_),
-  ]);
-}
-
-/**
  * Every change goes through here, so undo and the preview cannot drift.
  *
  * `rerender` is false for a keystroke: repainting the editor would replace the
@@ -131,7 +113,7 @@ function ensureEditable(document_: unknown): unknown {
 function commit(next: unknown, rerender = true): void {
   undoStack = [...undoStack, airpDocument].slice(-100);
   redoStack = [];
-  airpDocument = ensureEditable(next);
+  airpDocument = next;
   dirty = true;
   if (rerender) {
     renderEditor();
@@ -179,8 +161,20 @@ function statusLine(): void {
 let previewTimer: number | undefined;
 let previewSeq = 0;
 
+/**
+ * What the pane's own head says: which protocol the document is, and when it was
+ * last saved. Both come from the document, not from the render.
+ */
+function renderStamps(): void {
+  previewVersion.textContent = `v${VERSION}`;
+  const stamp = lastUpdatedOf(airpDocument);
+  previewState.textContent =
+    stamp === undefined ? "" : `最后更新 ${formatStamp(stamp)}`;
+}
+
 function schedulePreview(): void {
   statusLine();
+  renderStamps();
   window.clearTimeout(previewTimer);
   previewTimer = window.setTimeout(refreshPreview, DEBOUNCE_MS);
 }
@@ -188,8 +182,6 @@ function schedulePreview(): void {
 /** Render, and put a failure where the author can see it. */
 function refreshPreview(): void {
   runPreview().catch((error: unknown) => {
-    previewState.textContent = "渲染失败";
-    previewState.classList.add("is-error");
     say(error instanceof Error ? error.message : String(error), true);
   });
 }
@@ -197,20 +189,17 @@ function refreshPreview(): void {
 async function runPreview(): Promise<void> {
   previewSeq += 1;
   const seq = previewSeq;
-  previewState.textContent = "渲染中…";
   const result = await renderPreview(airpDocument);
   // A slower render must not overwrite a newer one.
   if (seq !== previewSeq) {
     return;
   }
   if (!result.ok) {
-    previewState.textContent = "渲染失败";
-    previewState.classList.add("is-error");
+    say("渲染失败", true);
     previewFrame.srcdoc = `<pre style="padding:16px;font:12px ui-monospace">${escapeHtml(result.message)}</pre>`;
     return;
   }
-  previewState.classList.remove("is-error");
-  previewState.textContent = `渲染于 ${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`;
+  renderStamps();
   previewFrame.srcdoc = result.body;
   if (!sourceArea.hidden) {
     sourceArea.value = serialize(airpDocument);
@@ -690,6 +679,13 @@ function renderEditor(): void {
     focusFirstControl(["blocks", index]);
   });
 
+  if (blocks.length === 0) {
+    // An empty page is allowed. With nothing to edit there is nothing for `/` to
+    // be typed on, so the only thing left on screen is the way back in.
+    editorEl.replaceChildren(add);
+    return;
+  }
+
   editorEl.replaceChildren(
     ...blocks.map((block, index) => renderBlock(block, ["blocks", index], 0)),
     add
@@ -710,7 +706,15 @@ function focusFirstControl(path: NodePath): void {
 
 /* ── the page's own options ─────────────────────────────────────────────── */
 
-function downloadJson(): void {
+/**
+ * Saving stamps the document's own timestamp, which is the time the preview head
+ * shows — so it says when the author last saved, not when a pane last repainted.
+ * In a browser the save is a download; a desktop shell would write the same bytes
+ * to a file.
+ */
+function saveDocument(): void {
+  airpDocument = withUpdatedAt(airpDocument, new Date().toISOString());
+  dirty = false;
   const blob = new Blob([serialize(airpDocument)], {
     type: "application/json",
   });
@@ -720,7 +724,9 @@ function downloadJson(): void {
   anchor.href = url;
   anchor.click();
   URL.revokeObjectURL(url);
-  say("已下载 JSON");
+  renderStamps();
+  statusLine();
+  schedulePreview();
 }
 
 menuButton.addEventListener("click", () => {
@@ -742,7 +748,7 @@ pageMenu.addEventListener("click", (event) => {
   pageMenu.hidden = true;
   switch (action) {
     case "export": {
-      downloadJson();
+      saveDocument();
       return;
     }
     case "source": {
@@ -779,7 +785,7 @@ fileInput.addEventListener("change", () => {
         say(`不支持的 schemaVersion：${loaded.value.schemaVersion}`, true);
         return;
       }
-      airpDocument = ensureEditable(loaded.value.document);
+      airpDocument = loaded.value.document;
       undoStack = [];
       redoStack = [];
       dirty = false;

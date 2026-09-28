@@ -64,11 +64,13 @@ async function openPage(): Promise<{
 
 async function readSource(page: Page): Promise<{
   blocks: Record<string, unknown>[];
+  meta?: Record<string, unknown>;
 }> {
   await page.click("#menu-button");
   await page.click('[data-action="source"]');
   return JSON.parse(await page.locator("#source").inputValue()) as {
     blocks: Record<string, unknown>[];
+    meta?: Record<string, unknown>;
   };
 }
 
@@ -84,8 +86,20 @@ describe("airp-notion", () => {
     expect(
       await preview.locator("[data-block-type]").count()
     ).toBeGreaterThanOrEqual(STARTER_BLOCKS);
-    // The export's own chrome is hidden in a pane, by CSS the host injected.
+    // The export's chrome is hidden in a pane, by CSS the host injected — the app
+    // shell's header and footer, and the document's own header too, because those
+    // are the page's furniture and this pane sits inside the page.
     expect(await preview.locator("header.sticky").isVisible()).toBe(false);
+    expect(
+      await preview.locator('header[data-doc-header="true"]').isVisible()
+    ).toBe(false);
+
+    // What the pane says instead: the protocol version, and the document's own
+    // timestamp rather than when the pane last repainted.
+    expect(await page.locator("#preview-version").textContent()).toBe("v1.1.0");
+    expect(await page.locator("#preview-state").textContent()).toContain(
+      "最后更新"
+    );
 
     await page.close();
   });
@@ -132,7 +146,7 @@ describe("airp-notion", () => {
     await page.close();
   });
 
-  it("cannot be emptied into a state with no way in", async () => {
+  it("can be emptied, and shows the one way back in", async () => {
     const { page, preview } = await openPage();
 
     // Delete every block the way an author would.
@@ -142,34 +156,50 @@ describe("airp-notion", () => {
       await block.locator('.row-action[title="删除"]').click();
     }
 
-    // Notion's answer: an empty page is one empty line, not zero lines. With zero
-    // there would be nothing to type `/` into, and the author would be locked out
-    // of their own document.
-    expect(await page.locator(".block").count()).toBe(1);
-    const field = page.locator(".field-input").first();
-    await expect(field.getAttribute("placeholder")).resolves.toContain("/");
+    // An empty page is allowed. `/` needs a line to be typed on, so on an empty
+    // document it cannot be the entry point — the button is the whole surface.
+    expect(await page.locator(".block").count()).toBe(0);
+    expect(await page.locator(".add-block").isVisible()).toBe(true);
+    expect(await page.locator("#editor > *").count()).toBe(1);
 
-    // …so the loop still works from there.
-    await field.click();
-    await page.keyboard.type("/call");
-    await page.locator(".slash-menu button").first().waitFor();
-    await page.keyboard.press("Enter");
-    expect(
-      await page.locator('.block[data-block-type="callout"]').count()
-    ).toBe(1);
-
-    // The preview re-rendered rather than keeping the emptied page on screen.
+    // The preview emptied with it rather than keeping a rendered page on screen.
     await expect
-      .poll(
-        async () =>
-          await preview.locator('[data-block-type="callout"]').count(),
-        { timeout: 60_000 }
-      )
-      .toBe(1);
+      .poll(async () => await preview.locator("[data-block-type]").count(), {
+        timeout: 60_000,
+      })
+      .toBe(0);
 
-    // And the pointer has a way in that does not depend on knowing `/`.
+    // …and the button brings the document back, caret included.
     await page.locator(".add-block").click();
-    expect(await page.locator(".block").count()).toBe(2);
+    expect(await page.locator(".block").count()).toBe(1);
+    await page.keyboard.type("重新开始");
+    const source = await readSource(page);
+    expect(source.blocks[0]?.text).toBe("重新开始");
+
+    await page.close();
+  });
+
+  it("stamps the document's own time when saving", async () => {
+    const { page } = await openPage();
+
+    const before = await page.locator("#preview-state").textContent();
+    expect(before).toContain("最后更新");
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      (async () => {
+        await page.click("#menu-button");
+        await page.click('[data-action="export"]');
+      })(),
+    ]);
+
+    expect(download.suggestedFilename()).toBe("report.airp.json");
+    // The save writes the document's timestamp, which is what the head shows — so
+    // the time is when the author saved, not when a pane happened to refresh.
+    const saved = await readSource(page);
+    expect(typeof saved.meta?.updatedAt).toBe("string");
+    expect(Number.isNaN(Date.parse(String(saved.meta?.updatedAt)))).toBe(false);
+    expect(await page.locator("#state").textContent()).toContain("已同步");
 
     await page.close();
   });

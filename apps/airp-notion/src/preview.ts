@@ -21,12 +21,22 @@ interface RenderFailed {
 export type PreviewResult = RenderFailed | RenderOk;
 
 /**
- * The Renderer's page chrome names the product and belongs to an export. The
- * preview is a pane inside an editor, so it is hidden here — as CSS injected
- * through the Renderer's own host hook, not by changing the Renderer.
+ * What the pane does not show, injected through the Renderer's own host hook
+ * rather than by changing the Renderer.
+ *
+ * Two kinds of thing are hidden, for different reasons:
+ *
+ * - The app shell's header and footer name the product and belong to an export.
+ * - The document's own header — protocol badge, title, and the "last updated" row.
+ *   That is the *page's* furniture, and this pane sits inside the page that
+ *   already shows it: the version is in this pane's own head, and the timestamp is
+ *   beside it. Leaving it rendered said the same thing twice, in two formats.
+ *
+ * What remains is the document's content, which is what the author is editing.
  */
-const HIDE_EXPORT_CHROME = `
+const HIDE_CHROME = `
   header.sticky, footer.w-full { display: none !important; }
+  header[data-doc-header="true"] { display: none !important; }
   html, body { background: #ffffff; }
 `;
 
@@ -40,7 +50,7 @@ export async function renderPreview(
       body: JSON.stringify({
         document: document_,
         target: "html",
-        targetOptions: { extraHead: `<style>${HIDE_EXPORT_CHROME}</style>` },
+        targetOptions: { extraHead: `<style>${HIDE_CHROME}</style>` },
       }),
       headers: { "content-type": "application/json" },
       method: "POST",
