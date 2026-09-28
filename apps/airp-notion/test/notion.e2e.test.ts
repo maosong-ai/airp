@@ -214,6 +214,52 @@ describe("airp-notion", () => {
     await page.close();
   });
 
+  it("renames the document in place, and saves the file under that name", async () => {
+    const { page } = await openPage();
+
+    await page.locator("#title").dblclick();
+    const input = page.locator(".bar-title-input");
+    await input.waitFor();
+    await input.fill("季度评审");
+    await page.keyboard.press("Enter");
+
+    // Enter committed it, and into the document rather than only the bar.
+    expect(await page.locator("#title").textContent()).toBe("季度评审");
+    expect(await page.locator(".bar-title-input").count()).toBe(0);
+    expect((await readSource(page)).meta?.title).toBe("季度评审");
+
+    // Clicking away commits too.
+    await page.locator("#title").dblclick();
+    await page.locator(".bar-title-input").fill("季度评审 2026");
+    await page.locator(".preview-head").click();
+    expect(await page.locator("#title").textContent()).toBe("季度评审 2026");
+
+    // Escape abandons the edit.
+    await page.locator("#title").dblclick();
+    await page.locator(".bar-title-input").fill("不要这个");
+    await page.keyboard.press("Escape");
+    expect(await page.locator("#title").textContent()).toBe("季度评审 2026");
+
+    // An empty name is refused: the schema requires at least one character, so
+    // accepting it would break the document the moment someone cleared the field.
+    await page.locator("#title").dblclick();
+    await page.locator(".bar-title-input").fill("   ");
+    await page.keyboard.press("Enter");
+    expect(await page.locator("#title").textContent()).toBe("季度评审 2026");
+
+    // …and the saved file carries the document's own name.
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      (async () => {
+        await page.click("#menu-button");
+        await page.click('[data-action="export"]');
+      })(),
+    ]);
+    expect(download.suggestedFilename()).toBe("季度评审 2026.airp.json");
+
+    await page.close();
+  });
+
   it("stamps the document's own time when saving", async () => {
     const { page } = await openPage();
     await addParagraph(page);
@@ -230,7 +276,7 @@ describe("airp-notion", () => {
       })(),
     ]);
 
-    expect(download.suggestedFilename()).toBe("report.airp.json");
+    expect(download.suggestedFilename()).toBe("未命名报告.airp.json");
     // The save writes the document's timestamp, which is what the head shows — so
     // the time is when the author saved, not when a pane happened to refresh.
     const saved = await readSource(page);

@@ -4,7 +4,14 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { formatStamp, lastUpdatedOf, withUpdatedAt } from "../src/stamp.js";
+import {
+  FALLBACK_TITLE,
+  fileNameOf,
+  formatStamp,
+  lastUpdatedOf,
+  titleOf,
+  withUpdatedAt,
+} from "../src/stamp.js";
 
 const DOCUMENT = {
   i18n: { locale: "zh-CN" },
@@ -61,5 +68,48 @@ describe("withUpdatedAt", () => {
 
   it("leaves a non-document alone", () => {
     expect(withUpdatedAt("nope", "2026-01-01T00:00:00.000Z")).toBe("nope");
+  });
+});
+
+describe("titleOf", () => {
+  it("prefers the document's own name", () => {
+    expect(titleOf({ meta: { title: "季度评审" } })).toBe("季度评审");
+  });
+
+  it("falls back rather than showing nothing", () => {
+    expect(titleOf({ meta: { title: "   " } })).toBe(FALLBACK_TITLE);
+    expect(titleOf({ meta: {} })).toBe(FALLBACK_TITLE);
+    expect(titleOf(undefined)).toBe(FALLBACK_TITLE);
+  });
+});
+
+describe("fileNameOf", () => {
+  it("names the file after the document", () => {
+    expect(fileNameOf({ meta: { title: "季度评审" } })).toBe(
+      "季度评审.airp.json"
+    );
+  });
+
+  it("drops what a file name cannot carry, instead of escaping it", () => {
+    // A label that tries to contain a path is a mistake, not a path.
+    expect(fileNameOf({ meta: { title: "../../etc/passwd" } })).toBe(
+      "....etcpasswd.airp.json"
+    );
+    expect(fileNameOf({ meta: { title: 'a:b*c?"d<e>f|g' } })).toBe(
+      "abcdefg.airp.json"
+    );
+  });
+
+  it("caps a name so a pasted paragraph cannot become a file name", () => {
+    const long = "字".repeat(200);
+    expect(fileNameOf({ meta: { title: long } })).toBe(
+      `${"字".repeat(60)}.airp.json`
+    );
+  });
+
+  it("still produces a usable name when the document has none", () => {
+    expect(fileNameOf({ meta: { title: "" } })).toBe(
+      `${FALLBACK_TITLE}.airp.json`
+    );
   });
 });

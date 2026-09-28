@@ -389,3 +389,26 @@ select.field-input {
   font-weight: 400;
   color: var(--muted);
 }
+
+/* The document's name in the bar: a label until it is double-clicked. */
+.bar-title {
+  padding: 2px 4px;
+  cursor: default;
+  border: 1px solid transparent;
+  border-radius: 5px;
+}
+
+.bar-title:hover {
+  border-color: var(--rule);
+}
+
+.bar-title-input {
+  padding: 1px 3px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+}

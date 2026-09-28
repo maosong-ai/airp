@@ -41,7 +41,13 @@ import {
   listBlockTypes,
   readBlockSpec,
 } from "./schema.js";
-import { formatStamp, lastUpdatedOf, withUpdatedAt } from "./stamp.js";
+import {
+  fileNameOf,
+  formatStamp,
+  lastUpdatedOf,
+  titleOf,
+  withUpdatedAt,
+} from "./stamp.js";
 
 const VERSION = (supportedSchemaVersions.at(-1) ?? "1.1.0") as SchemaVersion;
 const DEBOUNCE_MS = 300;
@@ -658,6 +664,8 @@ function renderBlock(
 }
 
 function renderEditor(): void {
+  // Before any early return: an empty document still has a name.
+  titleEl.textContent = titleOf(airpDocument);
   const blocks = readAt(airpDocument, blocksPath());
   if (!Array.isArray(blocks)) {
     editorEl.replaceChildren();
@@ -691,10 +699,6 @@ function renderEditor(): void {
     ...blocks.map((block, index) => renderBlock(block, ["blocks", index], 0)),
     add
   );
-  const meta = readAt(airpDocument, ["meta"]);
-  if (isRecord(meta) && typeof meta.title === "string") {
-    titleEl.textContent = meta.title;
-  }
 }
 
 /** Put the caret in a block's first text control, after a structural change. */
@@ -704,6 +708,79 @@ function focusFirstControl(path: NodePath): void {
   );
   target?.focus();
 }
+
+/* ── the document's name ────────────────────────────────────────────────── */
+
+/**
+ * Rename in place: double-click the name in the bar, type, then Enter or click
+ * away.
+ *
+ * There is no confirm step and nothing to persist by hand — the name is part of
+ * the document, so committing it here is what "saved" means. `meta.updatedAt` is
+ * deliberately left alone: that stamp says when the document was last *written
+ * out*, and renaming has not written anything yet.
+ *
+ * An empty name is refused rather than accepted, because the schema requires a
+ * `PlainString` of at least one character: allowing it would make the document
+ * invalid the moment someone cleared the field.
+ */
+function beginRename(): void {
+  if (titleEl.dataset.editing === "true") {
+    return;
+  }
+  const previous = titleEl.textContent ?? "";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "bar-title-input";
+  input.value = previous;
+  input.setAttribute("aria-label", "文档名称");
+
+  let settled = false;
+  const finish = (keep: boolean): void => {
+    if (settled) {
+      return;
+    }
+    settled = true;
+    const next = input.value.trim();
+    input.replaceWith(titleEl);
+    delete titleEl.dataset.editing;
+    if (keep && next !== "" && next !== previous) {
+      renameDocument(next);
+      return;
+    }
+    // Nothing to change — or a name that would have broken the document.
+    titleEl.textContent = previous;
+  };
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      finish(true);
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      finish(false);
+    }
+  });
+  input.addEventListener("blur", () => {
+    finish(true);
+  });
+
+  titleEl.dataset.editing = "true";
+  titleEl.replaceWith(input);
+  input.focus();
+  input.select();
+}
+
+function renameDocument(name: string): void {
+  // `rerender` is false: the column does not depend on the name, and repainting
+  // it would throw away the caret the author came back to.
+  commit(setAt(airpDocument, ["meta", "title"], name), false);
+  titleEl.textContent = name;
+}
+
+titleEl.addEventListener("dblclick", beginRename);
 
 /* ── the page's own options ─────────────────────────────────────────────── */
 
@@ -721,7 +798,7 @@ function saveDocument(): void {
   });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
-  anchor.download = "report.airp.json";
+  anchor.download = fileNameOf(airpDocument);
   anchor.href = url;
   anchor.click();
   URL.revokeObjectURL(url);
