@@ -143,11 +143,23 @@ body {
   overflow-y: auto;
 }
 
+/*
+ * Never narrower than the Renderer's `sm` breakpoint (640px).
+ *
+ * The pane used to be a plain 44%, which at a 1440px window is 633px — seven
+ * pixels under the breakpoint, so the Renderer laid the document out for a phone:
+ * 14px text and 32px between blocks instead of 16px and 48px. The preview was
+ * faithful to the bytes and wrong about the document, and the layout flipped
+ * between the two variants as the window was resized.
+ *
+ * 660 rather than 640 leaves room for the border, so the *frame* is above the
+ * breakpoint and not merely the pane around it.
+ */
 .preview {
   display: flex;
-  flex: 0 0 44%;
+  flex: 0 0 clamp(660px, 44%, 880px);
   flex-direction: column;
-  min-width: 320px;
+  min-width: 660px;
   background: #fbfbfa;
   border-left: 1px solid var(--rule);
 }

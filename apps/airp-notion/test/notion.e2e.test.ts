@@ -539,6 +539,16 @@ describe("airp-notion", () => {
       })
       .toContain("季度回顾");
 
+    // And it renders the *published* layout, not the phone one. The Renderer's
+    // markup is responsive, so a pane narrower than its `sm` breakpoint shows a
+    // different document: 14px text where the export has 16px.
+    expect(
+      await preview
+        .locator('[data-block-type="paragraph"]')
+        .first()
+        .evaluate((element) => getComputedStyle(element).fontSize)
+    ).toBe("16px");
+
     await page.close();
   });
 
