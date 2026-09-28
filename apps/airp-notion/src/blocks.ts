@@ -1,10 +1,15 @@
 /**
  * The block catalog the `/` menu reads: a name and a group for each type.
  *
+ * The names are **the ones this repository already declares**, read out of
+ * `README.cn.md` — the table the author wrote for readers. They are copied rather
+ * than invented: a second set of names for the same blocks is a second thing to
+ * keep in sync and a way to be subtly wrong. A test parses the README and fails
+ * if the two ever disagree.
+ *
  * The schema owns *which* types exist and *which fields* they have (see
- * `schema.ts`). This file owns only how they are presented, which the schema
- * cannot say: a JSON Schema has no opinion about what a Chinese reader should see
- * or which group a type belongs in.
+ * `schema.ts`). This file owns only what neither of those can say: the menu
+ * grouping.
  *
  * The groups follow the ones the authoring skill uses, but ordered for a menu
  * rather than for a specification: the blocks a writer reaches for daily come
@@ -28,7 +33,7 @@ export const BLOCK_GROUPS: readonly { group: BlockGroup; label: string }[] = [
 ];
 
 const BLOCK_META: Readonly<Record<string, BlockMeta>> = {
-  // 基本块 —— 天天用的那些，放最前
+  // basic
   paragraph: { group: "basic", label: "段落" },
   heading: { group: "basic", label: "标题" },
   bulletList: { group: "basic", label: "无序列表" },
@@ -42,7 +47,7 @@ const BLOCK_META: Readonly<Record<string, BlockMeta>> = {
   image: { group: "basic", label: "图片" },
   collapsible: { group: "basic", label: "折叠" },
 
-  // 版式
+  // layout
   lead: { group: "layout", label: "导语" },
   hero: { group: "layout", label: "指标首屏" },
   section: { group: "layout", label: "章节" },
@@ -57,7 +62,7 @@ const BLOCK_META: Readonly<Record<string, BlockMeta>> = {
   appendix: { group: "layout", label: "附录" },
   spacer: { group: "layout", label: "留白" },
 
-  // 工程
+  // engineering
   decision: { group: "engineering", label: "决策" },
   risk: { group: "engineering", label: "风险" },
   assumption: { group: "engineering", label: "假设" },
@@ -73,8 +78,8 @@ const BLOCK_META: Readonly<Record<string, BlockMeta>> = {
   fileTree: { group: "engineering", label: "文件树" },
   fileChangeList: { group: "engineering", label: "文件变更" },
 
-  // 图表与引用
-  mermaid: { group: "media", label: "Mermaid 图" },
+  // media
+  mermaid: { group: "media", label: "Mermaid" },
   architectureOverview: { group: "media", label: "架构总览" },
   linkList: { group: "media", label: "链接列表" },
   glossary: { group: "media", label: "术语表" },
@@ -97,8 +102,17 @@ export function menuGroups(types: readonly string[]): {
   items: { label: string; type: string }[];
   label: string;
 }[] {
+  const wanted = new Set(types);
+  // The catalog's own order is the reading order for a menu; the schema's `oneOf`
+  // order is about structure, and putting 分隔线 first is what that looks like.
+  // Types the schema declares but this file does not are appended, never dropped.
+  const ordered = [
+    ...NAMED_TYPES.filter((type) => wanted.has(type)),
+    ...types.filter((type) => !NAMED_TYPES.includes(type)),
+  ];
+
   const byGroup = new Map<BlockGroup, { label: string; type: string }[]>();
-  for (const type of types) {
+  for (const type of ordered) {
     const meta = blockMeta(type);
     const bucket = byGroup.get(meta.group);
     const item = { label: meta.label, type };

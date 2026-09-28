@@ -1,8 +1,9 @@
 /**
- * The loop, in a real browser: `/` → pick a block → it appears in the editor and
- * is editable → the preview pane shows the Renderer's own output for it.
+ * The loop, in a real browser: the page opens empty, `/` offers all 46 block
+ * types, choosing one puts it on the canvas where it can be typed into, and the
+ * preview pane shows the Renderer's own output for it.
  *
- * This needs a browser for all three claims: the `/` menu lives at the caret, the
+ * This needs a browser for all of it: the `/` menu lives at the caret, the
  * preview is a frame the Node render service wrote, and "the block appeared" can
  * only be judged from the DOM.
  */
@@ -22,7 +23,8 @@ const APP_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   ".."
 );
-const STARTER_BLOCKS = 4;
+/** Every block type the schema declares. */
+const BLOCK_TYPES = 46;
 
 let browser: Browser;
 let server: ViteDevServer;
@@ -44,22 +46,22 @@ afterAll(async () => {
   await server?.close();
 });
 
-async function openPage(): Promise<{
-  page: Page;
-  preview: FrameLocator;
-}> {
+async function openPage(): Promise<{ page: Page; preview: FrameLocator }> {
   const page = await browser.newPage({
     viewport: { width: 1440, height: 900 },
   });
   await page.goto(url);
-  await page.waitForSelector(".block[data-block-type]");
+  // The page opens empty, so the way in is what says it is ready.
+  await page.waitForSelector(".add-block");
   const preview = page.frameLocator("#preview");
-  // The preview is written by the render service, so wait for the document.
-  await preview
-    .locator("[data-block-type]")
-    .first()
-    .waitFor({ timeout: 60_000 });
+  await preview.locator("body").waitFor({ timeout: 60_000 });
   return { page, preview };
+}
+
+/** Add one block the way a pointer would, and wait for it to exist. */
+async function addParagraph(page: Page): Promise<void> {
+  await page.locator(".add-block").click();
+  await page.waitForSelector('.block[data-block-type="paragraph"]');
 }
 
 async function readSource(page: Page): Promise<{
@@ -75,49 +77,52 @@ async function readSource(page: Page): Promise<{
 }
 
 describe("airp-notion", () => {
-  it("shows the editable document and the Renderer's output side by side", async () => {
+  it("opens empty, with nothing on the canvas but the way in", async () => {
     const { page, preview } = await openPage();
 
-    expect(await page.locator(".block[data-block-type]").count()).toBe(
-      STARTER_BLOCKS
-    );
-    // Not a lookalike: the pane is the Renderer's own markup.
-    expect(await preview.locator('[data-block-type="lead"]').count()).toBe(1);
-    expect(
-      await preview.locator("[data-block-type]").count()
-    ).toBeGreaterThanOrEqual(STARTER_BLOCKS);
-    // The export's chrome is hidden in a pane, by CSS the host injected — the app
-    // shell's header and footer, and the document's own header too, because those
-    // are the page's furniture and this pane sits inside the page.
-    expect(await preview.locator("header.sticky").isVisible()).toBe(false);
-    expect(
-      await preview.locator('header[data-doc-header="true"]').isVisible()
-    ).toBe(false);
+    expect(await page.locator(".block").count()).toBe(0);
+    expect(await page.locator("#editor > *").count()).toBe(1);
+    expect(await page.locator(".add-block").isVisible()).toBe(true);
+    expect(await preview.locator("[data-block-type]").count()).toBe(0);
 
-    // What the pane says instead: the protocol version, and the document's own
-    // timestamp rather than when the pane last repainted.
+    // The pane's head names the protocol and the document's own timestamp; the
+    // rendered document header (badge, title, meta row) stays hidden, because
+    // those are the page's furniture and this pane sits inside the page.
     expect(await page.locator("#preview-version").textContent()).toBe("v1.1.0");
     expect(await page.locator("#preview-state").textContent()).toContain(
       "最后更新"
     );
+    expect(
+      await preview.locator('header[data-doc-header="true"]').isVisible()
+    ).toBe(false);
 
     await page.close();
   });
 
-  it("inserts any block type through the / menu and lands the caret in it", async () => {
+  it("offers every block type in the / menu, not a shortlist", async () => {
     const { page } = await openPage();
+    await addParagraph(page);
 
-    await page
-      .locator(".block")
-      .first()
-      .locator(".field-input")
-      .first()
-      .click();
+    await page.locator(".field-input").first().click();
+    await page.keyboard.type("/");
+
+    const menu = page.locator(".slash-menu");
+    await menu.waitFor();
+    // Typing a query used to be the only way to reach the types past the cap.
+    expect(await menu.locator("button").count()).toBe(BLOCK_TYPES);
+
+    await page.close();
+  });
+
+  it("inserts a block through the / menu and lands the caret in it", async () => {
+    const { page } = await openPage();
+    await addParagraph(page);
+
+    await page.locator(".field-input").first().click();
     await page.keyboard.type("/blockquote");
 
     const menu = page.locator(".slash-menu");
     await menu.waitFor();
-    // The filter is what makes 46 types usable without a memorised order.
     expect(await menu.locator("button").count()).toBe(1);
     expect(await menu.locator("button").first().textContent()).toContain(
       "引用"
@@ -129,10 +134,7 @@ describe("airp-notion", () => {
     expect(
       await page.locator('.block[data-block-type="blockquote"]').count()
     ).toBe(1);
-    expect(await page.locator(".block").count()).toBe(STARTER_BLOCKS + 1);
-
-    // The menu closed on the choice: `hidden` has to actually hide, and both
-    // menus here set `display`, which would otherwise override it.
+    // The menu closed on the choice: `hidden` has to actually hide.
     expect(await menu.isHidden()).toBe(true);
 
     // …and the caret is already in its first control, so typing just works.
@@ -146,44 +148,54 @@ describe("airp-notion", () => {
     await page.close();
   });
 
-  it("can be emptied, and shows the one way back in", async () => {
+  it("renders the edit in the preview pane", async () => {
     const { page, preview } = await openPage();
+    await addParagraph(page);
 
-    // Delete every block the way an author would.
-    for (let i = 0; i < STARTER_BLOCKS; i += 1) {
-      const block = page.locator(".block").first();
-      await block.hover();
-      await block.locator('.row-action[title="删除"]').click();
-    }
+    const field = page.locator(".field-input").first();
+    await field.click();
+    await field.fill("季度回顾");
+    await page.waitForFunction(() =>
+      (document.getElementById("state")?.textContent ?? "").includes("未保存")
+    );
 
-    // An empty page is allowed. `/` needs a line to be typed on, so on an empty
-    // document it cannot be the entry point — the button is the whole surface.
+    // The pane re-renders rather than showing the old bytes.
+    await expect
+      .poll(async () => await preview.locator("body").innerText(), {
+        timeout: 60_000,
+      })
+      .toContain("季度回顾");
+
+    await page.close();
+  });
+
+  it("can be emptied back to the one way in", async () => {
+    const { page, preview } = await openPage();
+    await addParagraph(page);
+
+    const block = page.locator(".block").first();
+    await block.hover();
+    await block.locator('.row-action[title="删除"]').click();
+
     expect(await page.locator(".block").count()).toBe(0);
-    expect(await page.locator(".add-block").isVisible()).toBe(true);
     expect(await page.locator("#editor > *").count()).toBe(1);
-
-    // The preview emptied with it rather than keeping a rendered page on screen.
+    expect(await page.locator(".add-block").isVisible()).toBe(true);
     await expect
       .poll(async () => await preview.locator("[data-block-type]").count(), {
         timeout: 60_000,
       })
       .toBe(0);
 
-    // …and the button brings the document back, caret included.
-    await page.locator(".add-block").click();
-    expect(await page.locator(".block").count()).toBe(1);
-    await page.keyboard.type("重新开始");
-    const source = await readSource(page);
-    expect(source.blocks[0]?.text).toBe("重新开始");
-
     await page.close();
   });
 
   it("stamps the document's own time when saving", async () => {
     const { page } = await openPage();
+    await addParagraph(page);
 
-    const before = await page.locator("#preview-state").textContent();
-    expect(before).toContain("最后更新");
+    expect(await page.locator("#preview-state").textContent()).toContain(
+      "最后更新"
+    );
 
     const [download] = await Promise.all([
       page.waitForEvent("download"),
@@ -200,32 +212,6 @@ describe("airp-notion", () => {
     expect(typeof saved.meta?.updatedAt).toBe("string");
     expect(Number.isNaN(Date.parse(String(saved.meta?.updatedAt)))).toBe(false);
     expect(await page.locator("#state").textContent()).toContain("已同步");
-
-    await page.close();
-  });
-
-  it("renders the edit in the preview pane", async () => {
-    const { page, preview } = await openPage();
-
-    const field = page
-      .locator(".block")
-      .first()
-      .locator(".field-input")
-      .first();
-    await field.click();
-    await field.fill("季度回顾");
-    // A block-level text edit reaches the document…
-    await page.waitForFunction(() => {
-      const state = document.getElementById("state");
-      return (state?.textContent ?? "").includes("未保存");
-    });
-
-    // …and the pane re-renders it, rather than showing the old bytes.
-    await expect
-      .poll(async () => await preview.locator("body").innerText(), {
-        timeout: 60_000,
-      })
-      .toContain("季度回顾");
 
     await page.close();
   });

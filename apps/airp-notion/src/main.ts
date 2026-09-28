@@ -44,7 +44,6 @@ import {
 import { formatStamp, lastUpdatedOf, withUpdatedAt } from "./stamp.js";
 
 const VERSION = (supportedSchemaVersions.at(-1) ?? "1.1.0") as SchemaVersion;
-const STARTER_BLOCKS = ["lead", "heading", "paragraph", "callout"] as const;
 const DEBOUNCE_MS = 300;
 /** A field whose whole text is a slash command. */
 const SLASH_QUERY = /^\/(\S*)$/;
@@ -70,25 +69,26 @@ const fileInput = byId<HTMLInputElement>("file");
 
 /* ── state ──────────────────────────────────────────────────────────────── */
 
-function starterDocument(): Record<string, unknown> {
-  const document_: Record<string, unknown> = {
-    schemaVersion: VERSION,
-    meta: {
-      title: "未命名报告",
-      kind: "generic",
-      createdAt: new Date().toISOString(),
-    },
+/**
+ * A new page is empty, with no content of any kind.
+ *
+ * The author adds the first block themselves — which is also why the empty state
+ * has to offer a way in (see `renderEditor`).
+ */
+function emptyDocument(): Record<string, unknown> {
+  return {
+    blocks: [],
     i18n: { locale: "zh-CN" },
-    blocks: [] as unknown[],
+    meta: {
+      createdAt: new Date().toISOString(),
+      kind: "generic",
+      title: "未命名报告",
+    },
+    schemaVersion: VERSION,
   };
-  const blocks = document_.blocks as unknown[];
-  for (const type of STARTER_BLOCKS) {
-    blocks.push(createBlock(type, VERSION, document_));
-  }
-  return document_;
 }
 
-let airpDocument: unknown = starterDocument();
+let airpDocument: unknown = emptyDocument();
 let dirty = false;
 let undoStack: unknown[] = [];
 let redoStack: unknown[] = [];
@@ -293,6 +293,8 @@ function openSlashMenu(
   fieldPath: NodePath
 ): void {
   const needle = query.toLowerCase();
+  // Every type the schema declares, not a shortlist: a menu that shows only some
+  // of them makes the rest discoverable only by guessing at a query.
   slashEntries = menuGroups(listBlockTypes(VERSION))
     .flatMap((group) => group.items)
     .filter(
@@ -300,8 +302,7 @@ function openSlashMenu(
         needle === "" ||
         entry.type.toLowerCase().includes(needle) ||
         entry.label.includes(query)
-    )
-    .slice(0, 12);
+    );
   if (slashEntries.length === 0) {
     closeSlashMenu();
     return;
@@ -803,5 +804,8 @@ fileInput.addEventListener("change", () => {
 /* ── boot ───────────────────────────────────────────────────────────────── */
 
 renderEditor();
-refreshPreview();
+// The pane's head is filled before the first render, or the version and the
+// timestamp would stay blank until the first edit.
+renderStamps();
 statusLine();
+refreshPreview();
