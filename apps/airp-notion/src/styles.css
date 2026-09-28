@@ -310,6 +310,11 @@ select.field-input {
   border-radius: 6px;
 }
 
+/*
+ * Deliberately inline-block at its natural size, in the empty document too: a
+ * full-width button centres its own label, which reads as "centred" even when no
+ * `auto` margin is involved.
+ */
 .add-block:hover {
   color: var(--accent);
   border-color: var(--accent);
@@ -383,10 +388,4 @@ select.field-input {
 .preview-version {
   font-weight: 400;
   color: var(--muted);
-}
-
-/* An empty document: the button is the whole surface, so it sits on its own. */
-.editor > .add-block:only-child {
-  display: block;
-  margin: 16vh auto 0;
 }

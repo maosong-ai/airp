@@ -91,6 +91,20 @@ describe("airp-notion", () => {
     expect(await page.locator(".add-block").isVisible()).toBe(true);
     expect(await preview.locator("[data-block-type]").count()).toBe(0);
 
+    // Left-aligned at its natural size, on an empty document as much as a full
+    // one. A button that stretched to the column would centre its own label and
+    // read as centred without a single `auto` margin in sight.
+    const widths = await page.evaluate(() => {
+      const button = document.querySelector(".add-block");
+      const editor = document.getElementById("editor");
+      return {
+        button: button?.getBoundingClientRect().width ?? 0,
+        editor: editor?.getBoundingClientRect().width ?? 0,
+      };
+    });
+    expect(widths.button).toBeGreaterThan(0);
+    expect(widths.button).toBeLessThan(widths.editor / 2);
+
     // The pane's head names the protocol and the document's own timestamp; the
     // rendered document header (badge, title, meta row) stays hidden, because
     // those are the page's furniture and this pane sits inside the page.
