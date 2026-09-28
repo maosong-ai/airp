@@ -292,6 +292,29 @@ select.field-input {
   border-left: 1px solid var(--rule);
 }
 
+/* ── the always-available way in ────────────────────────────────────────── */
+
+/*
+ * `/` needs a line to be typed on. This is the fallback for a pointer, and it is
+ * how a document that has been emptied gets its first line back.
+ */
+.add-block {
+  padding: 4px 10px;
+  margin-top: 10px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  background: none;
+  border: 1px dashed var(--rule);
+  border-radius: 6px;
+}
+
+.add-block:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 /* ── the slash menu ─────────────────────────────────────────────────────── */
 
 .slash-menu {

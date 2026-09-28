@@ -132,6 +132,48 @@ describe("airp-notion", () => {
     await page.close();
   });
 
+  it("cannot be emptied into a state with no way in", async () => {
+    const { page, preview } = await openPage();
+
+    // Delete every block the way an author would.
+    for (let i = 0; i < STARTER_BLOCKS; i += 1) {
+      const block = page.locator(".block").first();
+      await block.hover();
+      await block.locator('.row-action[title="删除"]').click();
+    }
+
+    // Notion's answer: an empty page is one empty line, not zero lines. With zero
+    // there would be nothing to type `/` into, and the author would be locked out
+    // of their own document.
+    expect(await page.locator(".block").count()).toBe(1);
+    const field = page.locator(".field-input").first();
+    await expect(field.getAttribute("placeholder")).resolves.toContain("/");
+
+    // …so the loop still works from there.
+    await field.click();
+    await page.keyboard.type("/call");
+    await page.locator(".slash-menu button").first().waitFor();
+    await page.keyboard.press("Enter");
+    expect(
+      await page.locator('.block[data-block-type="callout"]').count()
+    ).toBe(1);
+
+    // The preview re-rendered rather than keeping the emptied page on screen.
+    await expect
+      .poll(
+        async () =>
+          await preview.locator('[data-block-type="callout"]').count(),
+        { timeout: 60_000 }
+      )
+      .toBe(1);
+
+    // And the pointer has a way in that does not depend on knowing `/`.
+    await page.locator(".add-block").click();
+    expect(await page.locator(".block").count()).toBe(2);
+
+    await page.close();
+  });
+
   it("renders the edit in the preview pane", async () => {
     const { page, preview } = await openPage();
 

@@ -101,6 +101,26 @@ function blockCount(): number {
 }
 
 /**
+ * An editor whose only way in is a field *inside* a block cannot afford an empty
+ * document: with no blocks there is nothing to type `/` into, and the author is
+ * locked out of their own page.
+ *
+ * Notion solves it the same way — an "empty" page is one empty line, not zero
+ * lines, and deleting the last line leaves a fresh empty one. So the invariant is
+ * enforced here, at the single place every change passes through, rather than at
+ * each caller that could empty the list.
+ */
+function ensureEditable(document_: unknown): unknown {
+  const blocks = readAt(document_, blocksPath());
+  if (Array.isArray(blocks) && blocks.length > 0) {
+    return document_;
+  }
+  return setAt(document_, blocksPath(), [
+    createBlock("paragraph", VERSION, document_),
+  ]);
+}
+
+/**
  * Every change goes through here, so undo and the preview cannot drift.
  *
  * `rerender` is false for a keystroke: repainting the editor would replace the
@@ -111,7 +131,7 @@ function blockCount(): number {
 function commit(next: unknown, rerender = true): void {
   undoStack = [...undoStack, airpDocument].slice(-100);
   redoStack = [];
-  airpDocument = next;
+  airpDocument = ensureEditable(next);
   dirty = true;
   if (rerender) {
     renderEditor();
@@ -391,7 +411,8 @@ function textControl(
   value: unknown,
   multi: boolean,
   onInput: (next: string) => void,
-  onSlash: (query: string, anchor: HTMLElement) => void
+  onSlash: (query: string, anchor: HTMLElement) => void,
+  placeholder?: string
 ): HTMLElement {
   const field = multi
     ? document.createElement("textarea")
@@ -401,6 +422,9 @@ function textControl(
   }
   field.className = multi ? "field-input is-multiline" : "field-input";
   field.value = typeof value === "string" ? value : "";
+  if (placeholder !== undefined) {
+    field.placeholder = placeholder;
+  }
   if (multi) {
     (field as HTMLTextAreaElement).rows = 2;
   }
@@ -423,7 +447,8 @@ function textControl(
 function controlFor(
   field: FieldSpec,
   value: unknown,
-  path: NodePath
+  path: NodePath,
+  placeholder?: string
 ): HTMLElement {
   // `path` already points at this field: `renderBlock` hands over
   // `[...blockPath, field.key]`, so appending the key again would address
@@ -447,7 +472,8 @@ function controlFor(
           // The field is where the query is being typed; the block is what gets
           // turned into something or inserted after.
           openSlashMenu(query, anchor, path);
-        }
+        },
+        placeholder
       );
     case "boolean": {
       const input = document.createElement("input");
@@ -605,6 +631,12 @@ function renderBlock(
   row.append(head);
 
   const spec = readBlockSpec(type, VERSION);
+  // A fresh line says what can be done on it — the same hint Notion shows, and
+  // the only place the author learns that `/` exists.
+  const hint =
+    isRecord(node) && isBlankBlock(node, spec?.fields ?? [])
+      ? "输入 / 唤起命令，或直接开始写"
+      : undefined;
   for (const field of spec?.fields ?? []) {
     const value = node[field.key];
     if (!(field.required || value !== undefined)) {
@@ -627,7 +659,7 @@ function renderBlock(
       wrap.append(list);
     } else {
       wrap.append(
-        controlFor(field, value, [...path, field.key]) as HTMLElement
+        controlFor(field, value, [...path, field.key], hint) as HTMLElement
       );
     }
     row.append(wrap);
@@ -641,8 +673,26 @@ function renderEditor(): void {
     editorEl.replaceChildren();
     return;
   }
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "add-block";
+  add.textContent = "＋ 添加块";
+  add.addEventListener("click", () => {
+    const index = blockCount();
+    commit(
+      insertAt(
+        airpDocument,
+        blocksPath(),
+        index,
+        createBlock("paragraph", VERSION, airpDocument)
+      )
+    );
+    focusFirstControl(["blocks", index]);
+  });
+
   editorEl.replaceChildren(
-    ...blocks.map((block, index) => renderBlock(block, ["blocks", index], 0))
+    ...blocks.map((block, index) => renderBlock(block, ["blocks", index], 0)),
+    add
   );
   const meta = readAt(airpDocument, ["meta"]);
   if (isRecord(meta) && typeof meta.title === "string") {
@@ -729,7 +779,7 @@ fileInput.addEventListener("change", () => {
         say(`不支持的 schemaVersion：${loaded.value.schemaVersion}`, true);
         return;
       }
-      airpDocument = loaded.value.document;
+      airpDocument = ensureEditable(loaded.value.document);
       undoStack = [];
       redoStack = [];
       dirty = false;
