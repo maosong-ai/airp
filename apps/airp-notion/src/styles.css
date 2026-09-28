@@ -239,10 +239,14 @@ body {
   border-color: var(--accent);
 }
 
+/*
+ * One line tall, and it grows with its own content (see `grow` in the editor), so
+ * there is no minimum to hold open and no handle to drag.
+ */
 textarea.field-input {
-  min-height: 44px;
+  overflow: hidden;
   line-height: 1.6;
-  resize: vertical;
+  resize: none;
 }
 
 select.field-input {

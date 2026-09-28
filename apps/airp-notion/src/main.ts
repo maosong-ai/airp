@@ -496,6 +496,28 @@ function positionMenu(menu: HTMLElement, anchor: HTMLElement): void {
   menu.style.left = `${box.left}px`;
 }
 
+/**
+ * Let a prose field take the height its text needs.
+ *
+ * Only meaningful once the field is in the document: a detached element has no
+ * `scrollHeight`, so measuring one would collapse it to its padding. That is why
+ * the first measurement happens in `growAllFields`, after the rows are attached.
+ */
+function growField(field: Element): void {
+  if (!(field instanceof HTMLTextAreaElement)) {
+    return;
+  }
+  field.style.height = "auto";
+  field.style.height = `${field.scrollHeight}px`;
+}
+
+/** Every prose field in the editor, at the height its own text needs. */
+function growAllFields(): void {
+  for (const field of editorEl.querySelectorAll("textarea.field-input")) {
+    growField(field);
+  }
+}
+
 /** Whether the keystroke is going into something the author is typing in. */
 function isTextEntry(target: EventTarget | null): boolean {
   return (
@@ -644,8 +666,14 @@ function textControl(
     field.placeholder = placeholder;
   }
   if (multi) {
-    (field as HTMLTextAreaElement).rows = 2;
+    // One line by default, not two: a line of prose is one line of prose, and it
+    // grows with what is written into it.
+    (field as HTMLTextAreaElement).rows = 1;
   }
+
+  const grow = (): void => {
+    growField(field);
+  };
   const handleInput = (): void => {
     const text = field.value;
     // Only a field that offers the command menu looks for a command. Elsewhere a
@@ -659,6 +687,7 @@ function textControl(
       }
     }
     onInput(text);
+    grow();
   };
   field.addEventListener("input", (event) => {
     // An unfinished IME composition is not text yet. Acting on it would commit
@@ -669,7 +698,10 @@ function textControl(
     }
     handleInput();
   });
-  field.addEventListener("compositionend", handleInput);
+  field.addEventListener("compositionend", () => {
+    handleInput();
+    grow();
+  });
   field.addEventListener("blur", () => {
     closeSlashMenu();
   });
@@ -1091,6 +1123,9 @@ function renderEditor(): void {
     // Always last and always present — see `operationLine`.
     operationLine()
   );
+  // Now that the rows are attached, a field that arrived holding text can be
+  // measured — and every field starts at the height its content needs.
+  growAllFields();
 }
 
 /** Put the caret in a block's first text control, after a structural change. */

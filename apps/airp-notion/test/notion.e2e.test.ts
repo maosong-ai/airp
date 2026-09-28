@@ -492,6 +492,35 @@ describe("airp-notion", () => {
     await page.close();
   });
 
+  it("keeps a field one line tall until its text needs more", async () => {
+    const { page } = await openPage();
+    await addParagraph(page);
+    const field = page.locator(".block .field-input").first();
+
+    const oneLine = (await field.boundingBox())?.height ?? 0;
+    // One line of prose, not the two rows it used to reserve — and not a
+    // collapsed box either. Measuring before the field is attached yields a
+    // `scrollHeight` of zero, and `< 40` alone would happily accept that.
+    expect(oneLine).toBeGreaterThan(20);
+    expect(oneLine).toBeLessThan(40);
+
+    await field.fill("短");
+    await page.waitForTimeout(200);
+    const filled = (await field.boundingBox())?.height ?? 0;
+    expect(filled).toBeGreaterThan(20);
+    expect(filled).toBeLessThan(40);
+
+    // Long enough to wrap: it grows rather than scrolling inside itself, which is
+    // the only thing that makes a one-row field worse than a two-row one.
+    await field.fill("很长的一段文字，".repeat(12));
+    await page.waitForTimeout(300);
+    expect((await field.boundingBox())?.height ?? 0).toBeGreaterThan(
+      oneLine + 10
+    );
+
+    await page.close();
+  });
+
   it("renders the edit in the preview pane", async () => {
     const { page, preview } = await openPage();
     await addParagraph(page);
