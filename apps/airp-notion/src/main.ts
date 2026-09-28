@@ -446,20 +446,6 @@ function carryText(
   return born;
 }
 
-/** A block whose editable text is still untouched. */
-function isBlankBlock(
-  block: Record<string, unknown>,
-  fields: readonly FieldSpec[]
-): boolean {
-  const text = fields
-    .filter((field) => isTextShape(field.shape))
-    .map((field) => block[field.key])
-    .filter((value): value is string => typeof value === "string")
-    .join("")
-    .trim();
-  return block.type === "paragraph" && text === "";
-}
-
 function openSlashMenu(
   query: string,
   anchor: HTMLElement,
@@ -1062,12 +1048,9 @@ function renderBlock(
   row.append(gutter);
 
   const spec = readBlockSpec(type, VERSION);
-  // A fresh line says what can be done on it — the same hint Notion shows, and
-  // the only place the author learns that `/` exists.
-  const hint =
-    isRecord(node) && isBlankBlock(node, spec?.fields ?? [])
-      ? OPERATION_HINT
-      : undefined;
+  // No hint. It used to say `输入“/”唤起命令` on an empty paragraph too, which is
+  // a lie now that `/` only works on the operation line — and two lines showing
+  // the same sentence makes a real block look like the affordance.
   for (const field of spec?.fields ?? []) {
     const value = node[field.key];
     if (!(field.required || value !== undefined)) {
@@ -1090,7 +1073,7 @@ function renderBlock(
       wrap.append(list);
     } else {
       wrap.append(
-        controlFor(field, value, [...path, field.key], hint) as HTMLElement
+        controlFor(field, value, [...path, field.key]) as HTMLElement
       );
     }
     row.append(wrap);

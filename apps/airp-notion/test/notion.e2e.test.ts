@@ -282,6 +282,21 @@ describe("airp-notion", () => {
     expect(await page.locator(".block").count()).toBe(1);
     // A fresh operation line takes the old one's place, so there is always one.
     expect(await page.locator(".operation-line").count()).toBe(1);
+
+    // The hint belongs to the affordance, not to the block. An empty paragraph
+    // carrying the same sentence would both look like the operation line and tell
+    // the author to press `/` somewhere `/` does nothing.
+    expect(
+      await page
+        .locator(".block .field-input")
+        .first()
+        .getAttribute("placeholder")
+    ).toBeNull();
+    expect(
+      await page
+        .locator(".operation-line .field-input")
+        .getAttribute("placeholder")
+    ).toContain("/");
     expect((await readSource(page)).blocks[0]?.text).toBe("逐字输入");
 
     // Now that it is content, the pane renders it.
