@@ -365,3 +365,28 @@ select.field-input {
   border: 0;
   border-top: 1px solid var(--rule);
 }
+
+/* ── the pane's own title ───────────────────────────────────────────────── */
+
+/*
+ * `AIRP v1.1.0`, and the separator is an ordinary half-width space.
+ *
+ * The two parts sit inside one inline box (`.preview-title`) for exactly that
+ * reason: as two flex items the space between them would be the container's gap,
+ * which is not a space and does not measure like one.
+ */
+.preview-title {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.preview-version {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* An empty document: the button is the whole surface, so it sits on its own. */
+.editor > .add-block:only-child {
+  display: block;
+  margin: 16vh auto 0;
+}

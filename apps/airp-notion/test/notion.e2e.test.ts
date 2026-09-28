@@ -25,6 +25,12 @@ const APP_ROOT = path.resolve(
 );
 /** Every block type the schema declares. */
 const BLOCK_TYPES = 46;
+/** Rendered whitespace, for comparing text the browser laid out. */
+const RUN_OF_SPACE = /\s+/g;
+
+function collapse(text: string): string {
+  return text.replace(RUN_OF_SPACE, " ").trim();
+}
 
 let browser: Browser;
 let server: ViteDevServer;
@@ -89,6 +95,11 @@ describe("airp-notion", () => {
     // rendered document header (badge, title, meta row) stays hidden, because
     // those are the page's furniture and this pane sits inside the page.
     expect(await page.locator("#preview-version").textContent()).toBe("v1.1.0");
+    // Titled `AIRP` and the version, separated by a half-width space — which is
+    // why the two parts share one inline box instead of being flex items.
+    expect(collapse(await page.locator(".preview-title").innerText())).toBe(
+      "AIRP v1.1.0"
+    );
     expect(await page.locator("#preview-state").textContent()).toContain(
       "最后更新"
     );
