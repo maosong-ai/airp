@@ -1,0 +1,5 @@
+{
+  "tiers": ["Unit", "Package"],
+  "caseDriven": false,
+  "usesFixtures": true
+}

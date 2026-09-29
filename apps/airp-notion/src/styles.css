@@ -1,0 +1,534 @@
+/*
+ * Two panes and no sidebar: the editable column on the left, the Renderer's own
+ * output on the right. The editor is deliberately quiet — the block's type is a
+ * small label, and its actions only appear under the pointer.
+ */
+
+:root {
+  --ink: #37352f;
+  --muted: #8f8b85;
+  --rule: #ecebea;
+  --accent: #2383e2;
+  --hover: #f1f1ef;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/*
+ * `hidden` has to win. The menus below set `display: flex`, and an author
+ * `display` rule overrides the `[hidden] { display: none }` a browser applies on
+ * its own — which left both menus on screen after they were closed.
+ */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  color: var(--ink);
+  background: #fff;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ── top bar ─────────────────────────────────────────────────────────────── */
+
+.bar {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+  align-items: center;
+  height: 40px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.bar-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.bar-state,
+.preview-state {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.bar-state.is-error,
+.preview-state.is-error {
+  color: #c0392b;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.bar-button {
+  padding: 2px 8px;
+  font: inherit;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+}
+
+.bar-button:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.bar-menu {
+  position: absolute;
+  top: 36px;
+  right: 14px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  min-width: 168px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgb(15 15 15 / 10%);
+}
+
+.bar-menu button {
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+}
+
+.bar-menu button:hover {
+  background: var(--hover);
+}
+
+/* ── panes ───────────────────────────────────────────────────────────────── */
+
+.panes {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.editor {
+  flex: 1 1 auto;
+  min-width: 0;
+  /* Room on the left for the hover gutter. */
+  padding: 24px 28px 80px 74px;
+  overflow-y: auto;
+}
+
+/*
+ * Never narrower than the Renderer's `sm` breakpoint (640px).
+ *
+ * The pane used to be a plain 44%, which at a 1440px window is 633px — seven
+ * pixels under the breakpoint, so the Renderer laid the document out for a phone:
+ * 14px text and 32px between blocks instead of 16px and 48px. The preview was
+ * faithful to the bytes and wrong about the document, and the layout flipped
+ * between the two variants as the window was resized.
+ *
+ * 660 rather than 640 leaves room for the border, so the *frame* is above the
+ * breakpoint and not merely the pane around it.
+ */
+.preview {
+  display: flex;
+  flex: 0 0 clamp(660px, 44%, 880px);
+  flex-direction: column;
+  min-width: 660px;
+  background: #fbfbfa;
+  border-left: 1px solid var(--rule);
+}
+
+.preview-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--rule);
+}
+
+.preview-frame {
+  flex: 1 1 auto;
+  width: 100%;
+  background: #fff;
+  border: 0;
+}
+
+/* ── blocks ──────────────────────────────────────────────────────────────── */
+
+.block {
+  position: relative;
+  padding: 3px 0 6px;
+  border-left: 2px solid transparent;
+}
+
+.block:hover {
+  border-left-color: var(--rule);
+}
+
+.block-label {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.row-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.row-action {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.row-action:hover {
+  color: var(--ink);
+  background: var(--hover);
+  border-color: var(--rule);
+}
+
+.field {
+  margin-top: 2px;
+}
+
+.field-input {
+  width: 100%;
+  padding: 3px 6px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+}
+
+.field-input:hover {
+  border-color: var(--rule);
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/*
+ * One line tall, and it grows with its own content (see `grow` in the editor), so
+ * there is no minimum to hold open and no handle to drag.
+ */
+textarea.field-input {
+  overflow: hidden;
+  line-height: 1.6;
+  resize: none;
+}
+
+select.field-input {
+  width: auto;
+  min-width: 120px;
+}
+
+.field-summary {
+  padding: 3px 6px;
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px dashed var(--rule);
+  border-radius: 5px;
+}
+
+.item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.nested {
+  padding-left: 4px;
+  border-left: 1px solid var(--rule);
+}
+
+/* ── the slash menu ─────────────────────────────────────────────────────── */
+
+.menu {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  max-height: 320px;
+  padding: 4px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgb(15 15 15 / 12%);
+}
+
+.menu button {
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+}
+
+.menu button:hover,
+.menu button.is-active {
+  background: var(--hover);
+}
+
+/* ── source ─────────────────────────────────────────────────────────────── */
+
+.source {
+  flex: 0 0 auto;
+  height: 34vh;
+  padding: 12px 16px;
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--ink);
+  white-space: pre;
+  resize: vertical;
+  background: #fcfcfb;
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+
+/* ── the pane's own title ───────────────────────────────────────────────── */
+
+/*
+ * `AIRP v1.1.0`, and the separator is an ordinary half-width space.
+ *
+ * The two parts sit inside one inline box (`.preview-title`) for exactly that
+ * reason: as two flex items the space between them would be the container's gap,
+ * which is not a space and does not measure like one.
+ */
+.preview-title {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.preview-version {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* The document's name in the bar: a label until it is double-clicked. */
+.bar-title {
+  padding: 2px 4px;
+  cursor: default;
+  border: 1px solid transparent;
+  border-radius: 5px;
+}
+
+.bar-title:hover {
+  border-color: var(--rule);
+}
+
+.bar-title-input {
+  padding: 1px 3px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+}
+
+/* ── the hover gutter: `+` and `⋮⋮`, the way a line is added ─────────────── */
+
+/*
+ * Notion's way in. Both handles exist on every line and stay invisible until the
+ * pointer is on it, so the document reads as content rather than as a form — and
+ * a line can be added where the author is looking, not only at the end.
+ */
+/*
+ * Level with the field, not with the row box: the field carries its own padding,
+ * so a gutter pinned to the top of the row would ride above the text it acts on.
+ */
+.block-gutter {
+  position: absolute;
+  top: 5px;
+  left: -46px;
+  display: flex;
+  gap: 1px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.block:hover > .block-gutter {
+  opacity: 1;
+}
+
+.gutter-action {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+}
+
+.gutter-action:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+/* ── the operation line ─────────────────────────────────────────────────── */
+
+/*
+ * The trailing line that is not part of the document: always present, never
+ * rendered, and gone the moment it is used — because using it makes a real block.
+ */
+.operation-line {
+  position: relative;
+  padding: 3px 0 6px;
+}
+
+.operation-line:hover > .block-gutter {
+  opacity: 1;
+}
+
+.field-input::placeholder {
+  color: var(--muted);
+}
+
+/* ── dragging a row: it lifts, and the rows it passes slide aside ────────── */
+
+/*
+ * `transform` is what animates, so every row can transition it. The lifted row
+ * opts out below: it has to sit exactly under the pointer.
+ */
+.block,
+.operation-line {
+  transition: transform 0.18s ease;
+}
+
+.block[data-dragging="true"] {
+  position: relative;
+  z-index: 5;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 10px 28px rgb(15 15 15 / 16%);
+  transition: none;
+}
+
+.gutter-action[data-gutter="menu"] {
+  touch-action: none;
+  cursor: grab;
+}
+
+body.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+/* ── the pane previews the document, not the pane ────────────────────────── */
+
+/*
+ * The frame is laid out at the width the Renderer is designed around and scaled
+ * down to the pane, so the document is composed at a fixed width instead of being
+ * re-flowed to whatever the pane happens to be.
+ *
+ * A pane is narrower than any window a report is read in, and the markup is
+ * responsive: at 44% of a 1440px window it was 633px — seven pixels under the
+ * Renderer's `sm` breakpoint — so the pane showed the phone layout. Sizing the
+ * frame to the pane could only ever be "faithful for that width"; this is faithful
+ * to the document.
+ */
+.preview-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.preview-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 960px;
+  height: 100%;
+  background: #fff;
+  border: 0;
+  transform-origin: top left;
+}
+
+/* ── the operation line is the paragraph it is about to become ───────────── */
+
+/*
+ * One box model for both, written as one rule so they cannot drift: same padding,
+ * same transparent left border (a block paints it on hover — without it here the
+ * line would jump sideways by two pixels on the first keystroke), same gutter
+ * reveal.
+ */
+.block,
+.operation-line {
+  position: relative;
+  padding: 3px 0 6px;
+  border-left: 2px solid transparent;
+}
+
+/*
+ * The bar is a block's, and only a block's. The operation line keeps the
+ * transparent border so the two boxes are the same width — typing must not shift
+ * the text by two pixels — but it never paints it: hovering the line must not make
+ * it look like the block it has not become yet.
+ */
+.block:hover {
+  border-left-color: var(--rule);
+}

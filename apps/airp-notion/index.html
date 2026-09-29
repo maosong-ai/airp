@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>AIRP Notion</title>
+  </head>
+  <body>
+    <div class="app">
+      <header class="bar">
+        <span class="bar-title" id="title" title="双击重命名">未命名报告</span>
+        <span class="bar-state" id="state"></span>
+        <span class="spacer"></span>
+        <button
+          class="bar-button"
+          type="button"
+          id="menu-button"
+          aria-label="页面选项"
+        >
+          •••
+        </button>
+        <div class="bar-menu" id="page-menu" hidden>
+          <button type="button" data-action="save">保存</button>
+          <button type="button" data-action="save-as">另存为…</button>
+          <button type="button" data-action="open">打开…</button>
+          <button type="button" data-action="source">看源码</button>
+        </div>
+      </header>
+
+      <div class="panes">
+        <main class="editor" id="editor" aria-label="编辑"></main>
+
+        <aside class="preview" aria-label="渲染预览">
+          <div class="preview-head">
+            <span class="preview-title">
+              <span class="preview-name">AIRP</span>
+              <span class="preview-version" id="preview-version"></span>
+            </span>
+            <span class="spacer"></span>
+            <span class="preview-state" id="preview-state"></span>
+          </div>
+          <div class="preview-body">
+            <iframe
+              class="preview-frame"
+              id="preview"
+              title="渲染预览"
+            ></iframe>
+          </div>
+        </aside>
+      </div>
+
+      <textarea
+        class="source"
+        id="source"
+        spellcheck="false"
+        aria-label="文档源码"
+        hidden
+      ></textarea>
+    </div>
+
+    <input
+      type="file"
+      id="file"
+      accept=".json,.airp.json,application/json"
+      hidden
+    >
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
