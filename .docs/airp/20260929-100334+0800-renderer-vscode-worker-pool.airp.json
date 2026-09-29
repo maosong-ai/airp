@@ -1,0 +1,438 @@
+{
+  "schemaVersion": "1.1.0",
+  "meta": {
+    "title": "renderer-vscode 渲染进程池重构方案",
+    "subtitle": "RenderWorkerPool、worker 全量预热、Shiki 按需打包、esbuild minify、诊断码登记",
+    "kind": "refactoring",
+    "createdAt": "2026-09-29T02:03:34.975Z",
+    "createdBy": "毛松 <maosong-life@outlook.com>",
+    "updatedAt": "2026-09-29T04:50:00.000Z",
+    "updatedBy": "毛松 <maosong-life@outlook.com>",
+    "tags": ["renderer-vscode", "renderer-target-html", "renderer", "performance", "worker-pool", "shiki"],
+    "sourceRefs": [
+      { "@id": "av71o2ofkw", "type": "path", "value": "apps/renderer-vscode/src/render-session.ts" },
+      { "@id": "8prdd6vrv0", "type": "path", "value": "apps/renderer-vscode/src/worker-slot.ts" },
+      { "@id": "1km4dh69xg", "type": "path", "value": "apps/renderer-vscode/src/watch.ts" },
+      { "@id": "u5dmur9uoq", "type": "path", "value": "apps/renderer-vscode/src/workers/ipc.ts" },
+      { "@id": "i1eqtafgzl", "type": "path", "value": "apps/renderer-vscode/src/workers/render-worker-main.ts" },
+      { "@id": "z9q3m8pihm", "type": "path", "value": "apps/renderer-vscode/src/workers/run-render-job.ts" },
+      { "@id": "u1tj3ng2tm", "type": "path", "value": "apps/renderer-vscode/esbuild.mjs" },
+      { "@id": "4n07i3fgjx", "type": "path", "value": "packages/renderer-target-html/src/node/highlight-code.ts" },
+      { "@id": "dsv43wbm4x", "type": "path", "value": "packages/renderer-target-html/src/node/load-mermaid.ts" },
+      { "@id": "vak8nx5ukd", "type": "path", "value": "packages/renderer/src/node/render-document.ts" },
+      { "@id": "g1jgdeja1o", "type": "path", "value": ".agents/rules/project/package-boundaries/rules/dependency-dag.md" },
+      { "@id": "dayk6c2625", "type": "path", "value": ".agents/rules/project/failure-channels/rules/codes.md" },
+      { "@id": "50fhv4qbe9", "type": "path", "value": ".agents/rules/project/testing/rules/case-model.md" }
+    ]
+  },
+  "i18n": { "locale": "zh-CN" },
+  "blocks": [
+    {
+      "@id": "srv3j6e5ea",
+      "type": "lead",
+      "text": "每个 VS Code 窗口一个 `RenderWorkerPool`：扩展激活即 fork 并始终保持 1 个全量预热的空闲进程，进程一次性使用，总数上限 5；启动与任务各有 5 秒超时。Shiki 只打包白名单语言与 2 个主题，esbuild 三入口开启 `minify`，`renderer-vscode` 的裸诊断码改为登记码。分 3 个阶段由 AI 按序连续落地。"
+    },
+    {
+      "@id": "8jshyalmgv",
+      "type": "section",
+      "title": "背景与基线",
+      "children": [
+        {
+          "@id": "lpqlxkna7x",
+          "type": "paragraph",
+          "text": "打开 `*.airp.json` 时白屏，是因为 webview 要等一次完整的冷启动渲染结束才拿到 HTML：每次渲染新 fork 子进程并解析 24 MB 未压缩的 `render-worker.cjs`；有代码块时 Shiki 当场编译 46 种语言语法；有 Mermaid 时当场加载 Mermaid 并创建 JSDOM 窗口。以下为实施前在开发机上的实测值，阶段 3 用文末命令复测。"
+        },
+        {
+          "@id": "lyqpw8awfs",
+          "type": "table",
+          "caption": "实施前基线",
+          "columns": [
+            { "@id": "4lu6ujr2xs", "key": "metric", "label": "指标" },
+            { "@id": "3p05d10uoe", "key": "baseline", "label": "基线", "cellKind": "code", "align": "end" },
+            { "@id": "9fa0f0u6om", "key": "target", "label": "验收" }
+          ],
+          "rows": [
+            { "@id": "k77xtxgv8c", "metric": "已就绪进程 send 到拿到结果（html-blocks.airp.json）", "baseline": "659 ms", "target": "91–95 ms（3 次）" },
+            { "@id": "w3h0zzv7g5", "metric": "已就绪进程 send 到拿到结果（mermaid-ok-1.1.0.airp.json）", "baseline": "305 ms", "target": "91–93 ms（3 次）" },
+            { "@id": "2ljpmv6o9o", "metric": "fork 到 `ready`", "baseline": "—", "target": "493–514 ms（6 次）" },
+            { "@id": "9ki1i9622p", "metric": "空闲进程常驻内存（RSS）", "baseline": "223 MB", "target": "336–342 MB（6 次，全量预热后）" },
+            { "@id": "e7elhfizng", "metric": "render-worker.cjs 体积", "baseline": "24,069,116 B", "target": "10,221,605 B" },
+            { "@id": "v7aw7zzge1", "metric": "render-worker.cjs 非 Latin-1 字符数", "baseline": "69", "target": "0（实测 0）" }
+          ]
+        },
+        {
+          "@id": "yud24t0ilu",
+          "type": "paragraph",
+          "text": "实施前没有空闲进程，前两行基线取「fork 到拿到结果」总耗时，是 send 到结果的上界。RSS 基线为未预热进程；全量预热后 RSS 会上升，这是以内存换速度的预期结果，只记录不设门槛。非 Latin-1 字符来自第三方依赖的许可证注释（如 `—`）与正则字面量（esbuild 只转义字符串里的非 ASCII 字符，不转义正则），哪怕只剩一个也会让 V8 把整个脚本源码按 UTF-16 常驻（实测 `large_object_space` 约 47 MB）；`@shikijs/langs` 在 bundle 中占 8.2 MB（全部语言），`@shikijs/themes` 占 1.4 MB（全部主题）。"
+        }
+      ]
+    },
+    {
+      "@id": "bxwp7ppnbf",
+      "type": "section",
+      "title": "铁律",
+      "lead": "**正确 > 简单 > 一致 > 完整**。「简单」= 更少概念/结构，不是更少本次 diff；选了新表达须立刻统一，不两套并存。与铁律冲突时，立即暂停并询问。",
+      "children": [
+        { "@id": "newbgj7okd", "type": "constraint", "scope": "共通", "rule": "**先核对再下结论**：涉及代码、字段、命令、路径、文档，必须读过；读不到就说读不到。" },
+        { "@id": "cuyjgxt0su", "type": "constraint", "scope": "共通", "rule": "**只写最终形态**：无兼容层、deprecated、过渡实现；不写「原来…现在…」。只写将存在的；不做且无计划的不写。" },
+        { "@id": "2n9j0ii2yx", "type": "constraint", "scope": "共通", "rule": "**删掉仍无损则删**：抽象、分支、字段、段落，删了不损失信息或能力的，删掉。" },
+        { "@id": "w8d5grcm8y", "type": "constraint", "scope": "共通", "rule": "**同一概念一种表达**：命名、术语、结构在代码与文档之间一致；待决点必须给出结论与理由，不把选择留给下一个执行者。" },
+        { "@id": "7yj7w42bca", "type": "constraint", "scope": "共通", "rule": "**范围以本次任务为准**：范围内不因兼容/成本/历史妥协；范围外只记，不顺手改。" },
+        { "@id": "zgarha258u", "type": "constraint", "scope": "改代码", "rule": "**从目标形态反推**：不围着旧实现打补丁；新抽象/分支须有真实调用点或真实输入。" },
+        { "@id": "dbqrbrb4dt", "type": "constraint", "scope": "改代码", "rule": "**交付前跑通**：约定检查与测试。" },
+        { "@id": "jdr81n7mo0", "type": "constraint", "scope": "改文档", "rule": "**先结论，再理由，再细节**：直述，不堆形容词、不复述。" }
+      ]
+    },
+    {
+      "@id": "n8zwt5fj5c",
+      "type": "section",
+      "title": "执行规则",
+      "children": [
+        { "@id": "h2n5okioy0", "type": "constraint", "scope": "阶段推进", "rule": "阶段 1 → 2 → 3 按序连续落地，阶段间不停、不另开发布窗口。" },
+        { "@id": "aiwl1uh91z", "type": "constraint", "scope": "阶段推进", "rule": "每阶段只做到本阶段最小 `fix` + 测试通过；阶段间不留兼容或过渡代码。" },
+        { "@id": "v22lobedqj", "type": "constraint", "scope": "阶段推进", "rule": "每阶段完成后，把下方路线图对应阶段的 `status` 改为 `done`，并写入本文档 `meta.updatedBy` / `meta.updatedAt`，再跑本文档校验。" },
+        { "@id": "voo5hwwx6l", "type": "constraint", "scope": "交付", "rule": "PR 由人手动提交一次；AI 不代提 PR。" },
+        {
+          "@id": "ofywa1q5ji",
+          "type": "paragraph",
+          "text": "不设阶段 0：本方案不需要改 `.agents` 规范。`dependency-dag.md` 允许 `apps/* → renderer/node` 与 `renderer/node/render → renderer-target-html/node`，预热入口经这两条边暴露，`renderer-vscode` 不新增 workspace 依赖；`codes.md` 与 `case-model.md` 的登记、导出与 `UNIT_COVERED_*` 覆盖方式直接适用于 `renderer-vscode`；`package-roles.md` 中 `renderer-vscode` 的「fork worker」描述依然成立；不新增、不升级第三方依赖，`technology-stack` 无需同步。"
+        }
+      ]
+    },
+    {
+      "@id": "7c6sqgmh1z",
+      "type": "roadmap",
+      "phases": [
+        {
+          "@id": "9xg7zf52qa",
+          "title": "阶段 1：Shiki 按需打包与预热入口",
+          "timeframe": "packages/renderer-target-html、packages/renderer",
+          "status": "done",
+          "goals": [
+            "`createHighlighterCore` + 语言加载表，高亮器创建时加载全部白名单语言",
+            "只打包白名单语言与 `one-light` / `one-dark-pro`",
+            "`warmUpHtmlRenderer()` 与 `warmUpRenderer()` 预热入口",
+            "`@airp/renderer-target-html` 与 `@airp/renderer` 的 `fix` 与 `test` 通过"
+          ]
+        },
+        {
+          "@id": "sad284qrrv",
+          "title": "阶段 2：RenderWorkerPool 重构",
+          "timeframe": "apps/renderer-vscode",
+          "status": "done",
+          "goals": [
+            "`RenderWorkerPool` 取代 `WorkerSlot`；`RenderSession` 通过任务句柄提交与取消",
+            "worker 启动即预热并发 `ready`；IPC 收敛为 `RenderJobRecipe` / `RenderWorkerMessage`",
+            "登记 `renderer.vscode.workers.*` 诊断码",
+            "`DebouncedSerialRunner` 收敛为纯防抖 `DebouncedRunner`",
+            "esbuild 三入口 `minify` + `legalComments: \"external\"`；render-worker 输出经 `escapeNonLatin1Plugin` 转义为纯 Latin-1",
+            "`airp-renderer-vscode` 的 `fix`、`build` 与 `test` 通过"
+          ]
+        },
+        {
+          "@id": "lh9wwsyb0g",
+          "title": "阶段 3：全仓验收",
+          "timeframe": "仓库根目录",
+          "status": "done",
+          "goals": [
+            "根目录 `pnpm fix` 与 `pnpm test` 通过",
+            "按基线表复测并记录实测值"
+          ]
+        }
+      ]
+    },
+    {
+      "@id": "1uwfm333o4",
+      "type": "section",
+      "title": "关键决策",
+      "children": [
+        {
+          "@id": "pxgescd21p",
+          "type": "table",
+          "columns": [
+            { "@id": "d50vyzkym2", "key": "topic", "label": "决策点" },
+            { "@id": "pqg7lu3zu5", "key": "conclusion", "label": "结论" },
+            { "@id": "vhcypyvxrd", "key": "reason", "label": "理由" }
+          ],
+          "rows": [
+            { "@id": "9z2e4y67zo", "topic": "进程生命周期", "conclusion": "每个进程只跑一个任务；拿到结果、取消或超时后由进程池 `SIGKILL`", "reason": "取消即 kill，无需 worker 内中断；无 jsdom / Mermaid 状态残留；进程无需清理，不设宽限" },
+            { "@id": "nm54htily8", "topic": "进程池范围与上限", "conclusion": "每个 VS Code 窗口一个进程池；启动中 + 空闲 + 忙碌 ≤ 5", "reason": "每个窗口是独立的扩展宿主进程，跨窗口共享须另建守护进程，不做；上限控制内存峰值" },
+            { "@id": "66fct4odyr", "topic": "空闲进程常驻", "conclusion": "扩展激活时（进程池构造时）fork，之后始终补足 1 个空闲进程，含从未打开渲染视图的窗口", "reason": "每次打开文档都用已预热的进程；代价是每个含 `*.airp.json` 的窗口常驻一个预热进程" },
+            { "@id": "9j0l99mhy0", "topic": "预热内容", "conclusion": "worker 启动即调 `warmUpRenderer()`（Shiki、Mermaid、JSDOM），再调 `warmUpPipeline()`（内存里校验并 HTML 渲染内置小文档）；全部结束后发 `ready`", "reason": "一次性进程无法跨任务复用初始化结果；Shiki/Mermaid/JSDOM 只覆盖库加载，首次校验与 emit 仍要付 V8 JIT；把这段也移到空闲期" },
+            { "@id": "p8k3wmdoc1", "topic": "管线预热文档", "conclusion": "worker 内置一份 schema 1.1.0 对象（`WARM_UP_DOCUMENT`），不读盘；每种 HTML emit handler 各一块最小合法实例", "reason": "vsix 没有仓库样例文件；全量 gallery 绑仓库路径；每种 handler 都走一遍才能把后续任务压到热路径（gallery 实测约 65 ms）" },
+            { "@id": "j6izoz5dm5", "topic": "预热入口", "conclusion": "`@airp/renderer-target-html/node` 导出 `warmUpHtmlRenderer()`，`@airp/renderer/node/render` 转导出为 `warmUpRenderer()`", "reason": "`dependency-dag.md` 不允许 apps 直接依赖 `renderer-target-html`；`renderer` 负责编排 target" },
+            { "@id": "ocn4s93bte", "topic": "预热失败", "conclusion": "worker 照常发 `ready`；错误在执行任务时经正常诊断通道暴露", "reason": "Mermaid 失败本就产出诊断，Shiki 失败回退纯文本；不另设失败通道" },
+            { "@id": "ve9qqea49g", "topic": "任务分配与补位", "conclusion": "任务只分配给空闲进程，排队按 FIFO；补位规则：启动中 + 空闲 ≥ 排队任务数 + 1，且总数 ≤ 5", "reason": "启动中的进程计为可用名额，单个任务不为自己另 fork；多个任务并行启动；一条规则覆盖所有补位时机" },
+            { "@id": "bqwna9bcsr", "topic": "超时", "conclusion": "启动计时：fork 起 5 秒未收到 `ready` 即 kill；任务计时：向空闲进程发出 recipe 起 5 秒未拿到结果即 kill；排队不计时；不重试", "reason": "两段各管一段，互不叠加；已就绪的进程可无限期空闲；自动重试会让超时文档反复占满进程池" },
+            { "@id": "h8k9w2h5om", "topic": "启动失败", "conclusion": "启动超时或 `ready` 前退出：不补位，排队中的任务全部以 `renderer.vscode.workers.failed` 结束", "reason": "避免崩溃循环 fork；排队任务不无限挂起；下一次提交自然重试" },
+            { "@id": "n1na6m2pix", "topic": "就绪后意外退出", "conclusion": "空闲进程退出：立即补位；忙碌进程未返回结果即退出：任务以 `renderer.vscode.workers.failed` 结束", "reason": "保持 1 个空闲进程常驻；已发过 `ready` 说明启动正常，补位不会形成循环" },
+            { "@id": "x8k2finx5b", "topic": "面板内任务", "conclusion": "每个面板至多一个渲染任务与一个导出任务；提交同类新任务前取消旧任务；渲染与导出并行；进程池不去重", "reason": "旧结果已过时；两类任务同一规则；面板是唯一知道「同一文件」的一方，进程池只管调度" },
+            { "@id": "uvozu2sr73", "topic": "IPC", "conclusion": "宿主 → worker 只有 `RenderJobRecipe`；worker → 宿主为 `{ type: \"ready\" }` 或 `{ type: \"result\"; result }`", "reason": "worker 有两种消息，须显式区分" },
+            { "@id": "eb23jl7qdx", "topic": "诊断码", "conclusion": "`renderer.vscode.workers.timeout` 与 `renderer.vscode.workers.failed` 两条", "reason": "进程退出、启动失败与 worker 抛异常的差异已在消息里，分码不增加信息；码名沿用现有点分写法（如 `renderer.targets.html.*`）" },
+            { "@id": "7mo4ijmbkr", "topic": "取消的表达", "conclusion": "`RenderJobOutcome` 的 `cancelled` 分支，不产生诊断", "reason": "取消不是错误" },
+            { "@id": "lkf6fv7qpd", "topic": "许可证注释", "conclusion": "`legalComments: \"external\"`，输出 `dist/*.LEGAL.txt` 随 vsix 发布", "reason": "注释里的非 Latin-1 字符移出脚本，同时保留第三方声明；`.vscodeignore` 未排除该文件" },
+            { "@id": "q4m8r2nx7c", "topic": "正则里的非 Latin-1 字符", "conclusion": "render-worker 挂 `escapeNonLatin1Plugin`：`onEnd` 把输出中 U+00FF 以上的 UTF-16 码元改写为 `\\uXXXX`", "reason": "esbuild 不转义正则字面量，第三方依赖与 `emit-helpers.ts` 的正则都有非 Latin-1 字符；该转义在字符串、正则、标识符与注释中等价，一处统一处理，新增依赖也自动覆盖；extension 与 webview 输出已是纯 Latin-1，不挂" },
+            { "@id": "0nc28vip2h", "topic": "Shiki 引擎", "conclusion": "保留 Oniguruma（`createOnigurumaEngine(import(\"shiki/wasm\"))`）", "reason": "与现有高亮结果一致" },
+            { "@id": "ku2dk4m03w", "topic": "Shiki 语言", "conclusion": "语言加载表是唯一定义，高亮器创建时全部加载；`ShikiLanguage` 由它推导，删除独立白名单数组", "reason": "空闲进程已预热，按语言懒加载无收益；同一概念一种表达" }
+          ]
+        }
+      ]
+    },
+    {
+      "@id": "i3niw0np9j",
+      "type": "section",
+      "title": "阶段 1：Shiki 按需打包与预热入口",
+      "lead": "高亮器创建时一次加载全部白名单语言；bundle 只含白名单语言与 2 个主题；`renderer` 暴露 `warmUpRenderer()` 供 worker 启动时预热。",
+      "children": [
+        {
+          "@id": "pdiwb3ipnl",
+          "type": "bulletList",
+          "items": [
+            "高亮器：`createHighlighterCore`（`shiki/core`），`themes` 为 `import(\"shiki/themes/one-light.mjs\")` 与 `import(\"shiki/themes/one-dark-pro.mjs\")`，`langs` 为语言加载表的全部值，`engine: createOnigurumaEngine(import(\"shiki/wasm\"))`（`shiki/engine/oniguruma`）。以上子路径已在 `shiki@4.4.3` 的 `exports` 中核对，46 种语言与 2 个主题的文件均存在。",
+            "语言加载表 `SHIKI_LANGUAGE_LOADERS`：键为除 `text` 外的白名单语言，值为 `() => import(\"shiki/langs/<name>.mjs\")`。`ShikiLanguage` = `\"text\"` | 表的键；`resolveShikiLanguage` 用 `LANGUAGE_ALIASES` 与该表判定，未知语言归为 `text`（Shiki core 内置纯文本语言）。",
+            "`getHighlighter()` 导出供预热调用；高亮器 Promise 进程内只创建一次。",
+            "失败回退：高亮失败回退 `text`；高亮器创建失败返回空串。",
+            "预热：新增 `src/node/warm-up.ts` 导出 `warmUpHtmlRenderer()`，并行等待 `getHighlighter()` 与 `loadMermaid()`（后者先 `ensureMermaidDom()` 建 JSDOM 窗口）；失败时 reject，由调用方决定处理。`src/node/index.ts` 导出它；`packages/renderer/src/node/render-document.ts` 转导出为 `warmUpRenderer()`。",
+            "打包：`shiki` 在 `dependencies` 中，tsdown 0.22.14 的 deps 插件按 `dependencies` 包名前缀把 `shiki/*` 子路径一并外置，`tsdown.config.ts` 不需要改；`renderer-vscode` 的 esbuild 只打包实际 `import()` 到的语言与主题。"
+          ]
+        },
+        {
+          "@id": "za63tjz5ht",
+          "type": "fileChangeList",
+          "items": [
+            { "@id": "0eg9ut1jtj", "path": "packages/renderer-target-html/src/node/highlight-code.ts", "change": "modified", "note": "`createHighlighterCore` + `SHIKI_LANGUAGE_LOADERS` 全量加载；导出 `getHighlighter`" },
+            { "@id": "xgwm4tkpi5", "path": "packages/renderer-target-html/src/node/warm-up.ts", "change": "added", "note": "`warmUpHtmlRenderer()`" },
+            { "@id": "6son5l64hx", "path": "packages/renderer-target-html/src/node/index.ts", "change": "modified", "note": "导出 `warmUpHtmlRenderer`" },
+            { "@id": "jkn79fpp75", "path": "packages/renderer/src/node/render-document.ts", "change": "modified", "note": "转导出 `warmUpRenderer`" },
+            { "@id": "z126adixa8", "path": "packages/renderer-target-html/test/highlight-code.test.ts", "change": "added", "note": "Unit：已知语言、别名、未知语言回退 `text`、并发高亮多种语言" },
+            { "@id": "nkjzw6sa1x", "path": "packages/renderer-target-html/test/warm-up.test.ts", "change": "added", "note": "Unit：预热后高亮与 Mermaid 渲染可用" }
+          ]
+        },
+        {
+          "@id": "xc0z5fruda",
+          "type": "checklist",
+          "items": [
+            { "@id": "qjxmme218o", "label": "`highlight-code.ts`、`warm-up.ts`、`src/node/index.ts` 与 `render-document.ts` 按上述设计实现" },
+            { "@id": "nf95a3iljn", "label": "新增 `highlight-code.test.ts`：已知语言产出多色 token；别名 `ts` 与 `typescript` 输出一致；未知语言与 `text` 输出一致；`Promise.all` 并发高亮多种语言全部成功" },
+            { "@id": "e2hve32jix", "label": "新增 `warm-up.test.ts`：`warmUpHtmlRenderer()` resolve 后，`highlightCodeHtml` 与 `renderMermaidSvg` 均成功" },
+            { "@id": "868x0sznxo", "label": "`pnpm --filter @airp/renderer-target-html fix` 与 `pnpm --filter @airp/renderer fix` 通过" },
+            { "@id": "anb57d876i", "label": "`pnpm --filter @airp/renderer-target-html test` 与 `pnpm --filter @airp/renderer test` 通过" },
+            { "@id": "om4azanv3z", "label": "路线图阶段 1 `status` 改为 `done`，更新 `meta.updatedBy` / `meta.updatedAt` 并校验本文档" }
+          ]
+        }
+      ]
+    },
+    {
+      "@id": "9b6y2giz4f",
+      "type": "section",
+      "title": "阶段 2：RenderWorkerPool 重构",
+      "lead": "每个窗口唯一的 `RenderWorkerPool` 负责进程调度与生命周期；worker 启动即预热；`RenderSession` 只提交和取消任务。",
+      "children": [
+        {
+          "@id": "ocjdrrtnhg",
+          "type": "section",
+          "level": 3,
+          "title": "RenderWorkerPool",
+          "children": [
+            {
+              "@id": "it87hozjin",
+              "type": "code",
+              "language": "ts",
+              "filename": "apps/renderer-vscode/src/render-worker-pool.ts",
+              "code": "export type RenderJobOutcome =\n  | { kind: \"done\"; result: RunRenderJobResult }\n  | { kind: \"cancelled\" };\n\nexport interface RenderJobHandle {\n  cancel(): void;\n  outcome: Promise<RenderJobOutcome>;\n}\n\nexport interface RenderWorkerPoolOptions {\n  spawnWorker: () => ChildProcess;\n}\n\nexport class RenderWorkerPool {\n  constructor(options: RenderWorkerPoolOptions);\n  submit(recipe: RenderJobRecipe): RenderJobHandle;\n  dispose(): void;\n}"
+            },
+            {
+              "@id": "3g5wxuluky",
+              "type": "numberedList",
+              "items": [
+                "**创建**：`extension.ts` 的 `activate()` 创建唯一实例并注册进 `context.subscriptions`；`spawnWorker` 为 `fork(<extensionUri>/dist/render-worker.cjs, [], { env: { ...process.env, ELECTRON_RUN_AS_NODE: \"1\" }, execPath: process.execPath, stdio: [\"ignore\", \"inherit\", \"inherit\", \"ipc\"] })`。构造即按补位规则 fork 1 个进程。",
+                "**常量**：`MAX_WORKERS = 5`、`WORKER_READY_TIMEOUT_MS = 5000`、`JOB_TIMEOUT_MS = 5000`。",
+                "**进程状态**：启动中（已 fork、未收到 `ready`）→ 空闲（已收到 `ready`、无任务）→ 忙碌（已发出 recipe）。",
+                "**submit**：任务入 FIFO 队列，再执行分配与补位。",
+                "**分配**：队首任务取任一空闲进程，`send(recipe)` 并开始任务计时；循环直到队列空或无空闲进程。启动中的进程不接任务。",
+                "**补位**：分配之后执行；fork 直到「启动中 + 空闲 ≥ 排队任务数 + 1」或总数达到 5。每次 fork 开始启动计时。",
+                "**收到 `ready`**：停止启动计时，进程转为空闲，执行分配与补位。",
+                "**收到 `result`**：`outcome` 为 `{ kind: \"done\", result }`，kill 进程，执行分配与补位。",
+                "**任务超时**：kill 进程，`outcome` 为 `done`，`result` 含 `renderer.vscode.workers.timeout` 诊断，执行分配与补位。",
+                "**启动失败**（启动超时或 `ready` 前退出）：kill 进程，排队中的任务全部以 `done` 结束，`result` 含 `renderer.vscode.workers.failed` 诊断（消息写明启动超时或退出码 / 信号）；不补位。",
+                "**空闲进程退出**：移除，执行补位。",
+                "**忙碌进程未返回结果即退出**：`outcome` 为 `done`，`result` 含 `renderer.vscode.workers.failed` 诊断，消息带退出码或信号；执行分配与补位。",
+                "**cancel()**：排队中则移出队列；执行中则 kill 进程并执行分配与补位；`outcome` 为 `{ kind: \"cancelled\" }`。已结束的任务调用无效果。",
+                "**kill**：一律 `SIGKILL`，发出即从进程池移除。",
+                "**dispose()**：kill 所有进程，未结束任务的 `outcome` 为 `cancelled`；之后 `submit` 立即返回 `cancelled`，不再 fork。"
+              ]
+            }
+          ]
+        },
+        {
+          "@id": "znamn1kdfp",
+          "type": "section",
+          "level": 3,
+          "title": "RenderSession",
+          "children": [
+            {
+              "@id": "h87hldza6c",
+              "type": "bulletList",
+              "items": [
+                "`RenderSessionHost` 增加 `pool: RenderWorkerPool` 字段。",
+                "每个面板至多持有一个渲染句柄 `renderJob` 与一个导出句柄 `exportJob`；提交同类新任务前先 `cancel()` 旧句柄。",
+                "文件变化：立即 `renderJob?.cancel()`，再按 `airp.renderer.rerenderDelay` 防抖提交新渲染任务；`exportJob` 不受影响。",
+                "面板关闭（`dispose`）：两个句柄都 `cancel()`，之后不再提交。",
+                "`outcome` 为 `cancelled` 时直接返回。`result` 失败时：未成功渲染过则显示错误壳（`buildHostShellHtml`），成功渲染过则保留旧内容并 `toast`；两者都 `logDiagnostics` 到 Output。超时与启动失败走同一路径。",
+                "`watch.ts`：`DebouncedSerialRunner` 改为纯防抖 `DebouncedRunner`（`kick(ms)` / `clear()`），不再串行排队；面板内同类任务由句柄取消保证只有最新一次生效。"
+              ]
+            }
+          ]
+        },
+        {
+          "@id": "n2rkr09bhf",
+          "type": "section",
+          "level": 3,
+          "title": "worker 端与 IPC",
+          "children": [
+            {
+              "@id": "g2mv79nztl",
+              "type": "bulletList",
+              "items": [
+                "`workers/ipc.ts` 定义两个类型：`RenderJobRecipe`（`input`、`target`、可选 `targetOptions`），宿主 → worker 唯一消息；`RenderWorkerMessage` = `{ type: \"ready\" }` | `{ type: \"result\"; result: RunRenderJobResult }`，worker → 宿主。",
+                "`runRenderJob(recipe)` 只执行 load → validate → render，无 hooks 参数。",
+                "`render-worker-main.ts`：启动即 `await warmUpRenderer()` 再 `await warmUpPipeline()`（任一失败忽略）后发 `{ type: \"ready\" }`；收到 recipe 执行 `runRenderJob` 并发回 `{ type: \"result\", result }`；抛异常时 `result` 为含 `renderer.vscode.workers.failed` 诊断的失败结果；收到 `disconnect` 立即 `process.exit()`。"
+              ]
+            }
+          ]
+        },
+        {
+          "@id": "c86c5hs3y8",
+          "type": "section",
+          "level": 3,
+          "title": "诊断码",
+          "children": [
+            {
+              "@id": "8f2d2qqjvu",
+              "type": "table",
+              "caption": "apps/renderer-vscode/src/diagnostic-codes.ts",
+              "columns": [
+                { "@id": "lft2jpm434", "key": "constant", "label": "常量", "cellKind": "code" },
+                { "@id": "7zzcxd55mp", "key": "code", "label": "code", "cellKind": "code" },
+                { "@id": "znwb3xx295", "key": "severity", "label": "severity", "cellKind": "code" },
+                { "@id": "og9kmbcfqv", "key": "channel", "label": "return 注释" }
+              ],
+              "rows": [
+                { "@id": "wq8sfupf3j", "constant": "RENDERER_VSCODE_WORKERS_TIMEOUT", "code": "renderer.vscode.workers.timeout", "severity": "error", "channel": "src/render-worker-pool.ts" },
+                { "@id": "9oxrt46u1a", "constant": "RENDERER_VSCODE_WORKERS_FAILED", "code": "renderer.vscode.workers.failed", "severity": "error", "channel": "src/render-worker-pool.ts、src/workers/render-worker-main.ts" }
+              ]
+            },
+            {
+              "@id": "5fjmd1o5tq",
+              "type": "paragraph",
+              "text": "同文件导出 `RENDERER_VSCODE_DIAGNOSTIC_ENTRIES`、`RENDERER_VSCODE_DIAGNOSTIC_CODES`、`RendererVscodeDiagnosticCode`、`UNIT_COVERED_RENDERER_VSCODE_DIAGNOSTIC_CODES`（两条都列入），形状与 `packages/renderer-target-html/src/diagnostic-codes.ts` 一致；`package.json` 的 `exports` 增加 `\"./diagnostic-codes\": \"./src/diagnostic-codes.ts\"`。两条码产生于宿主进程调度与 worker 入口，不属于 pipeline 路径，按 `case-model.md` 用 `UNIT_COVERED_*` + Unit 覆盖。"
+            }
+          ]
+        },
+        {
+          "@id": "vfaxfdyobs",
+          "type": "section",
+          "level": 3,
+          "title": "esbuild",
+          "children": [
+            {
+              "@id": "gz6hw3e1w8",
+              "type": "bulletList",
+              "items": [
+                "`extension`、`renderWorker`、`webview` 三个配置都加 `minify: true`（缩小体积与解析耗时）与 `legalComments: \"external\"`（许可证注释移出脚本，消除非 Latin-1 字符）；watch 与 build 共用同一组配置。",
+                "`renderWorker` 追加 `escapeNonLatin1Plugin()`（`scripts/escape-non-latin1.mjs`），构建结束后把输出中剩余的非 Latin-1 字符（正则字面量里的）转义为 `\\uXXXX`。",
+                "`sourcemap` 保持：extension 与 render-worker 生成，webview 不生成。",
+                "minify 对 Mermaid 等依赖的影响由 `render-worker-boot.test.ts` 用真实 bundle 渲染 `mermaid-ok-1.1.0.airp.json` 覆盖。"
+              ]
+            }
+          ]
+        },
+        {
+          "@id": "nzd4q8alkw",
+          "type": "section",
+          "level": 3,
+          "title": "文件变更",
+          "children": [
+            {
+              "@id": "k8k9dz6u4e",
+              "type": "fileChangeList",
+              "items": [
+                { "@id": "xvycmw5g9d", "path": "apps/renderer-vscode/src/render-worker-pool.ts", "change": "added" },
+                { "@id": "qbq6cjpw4c", "path": "apps/renderer-vscode/src/diagnostic-codes.ts", "change": "added" },
+                { "@id": "gxc9jb46oi", "path": "apps/renderer-vscode/package.json", "change": "modified", "note": "`exports` 增加 `./diagnostic-codes`" },
+                { "@id": "2108vyn0bn", "path": "apps/renderer-vscode/src/workers/ipc.ts", "change": "modified", "note": "`RenderJobRecipe`（无 `jobId`）与 `RenderWorkerMessage`" },
+                { "@id": "j4llf6z5y1", "path": "apps/renderer-vscode/src/workers/render-worker-main.ts", "change": "modified", "note": "`warmUpRenderer` + `warmUpPipeline` 后发 `ready`；异常收成 `renderer.vscode.workers.failed`；`disconnect` 即退出" },
+                { "@id": "w8p4lineup", "path": "apps/renderer-vscode/src/workers/warm-up-pipeline.ts", "change": "added", "note": "内置 `WARM_UP_DOCUMENT` 与 `warmUpPipeline()`" },
+                { "@id": "t9q1wupipe", "path": "apps/renderer-vscode/test/warm-up-pipeline.test.ts", "change": "added", "note": "Unit：内置文档校验并 HTML 渲染成功" },
+                { "@id": "br6c6opwpa", "path": "apps/renderer-vscode/src/workers/run-render-job.ts", "change": "modified", "note": "删除 hooks" },
+                { "@id": "uj5ymr1y3g", "path": "apps/renderer-vscode/src/render-session.ts", "change": "modified", "note": "`renderJob` / `exportJob` 句柄" },
+                { "@id": "aqt0cr58gj", "path": "apps/renderer-vscode/src/watch.ts", "change": "modified", "note": "`DebouncedRunner` 纯防抖" },
+                { "@id": "gt733a9qp7", "path": "apps/renderer-vscode/src/extension.ts", "change": "modified", "note": "创建并释放 `RenderWorkerPool`" },
+                { "@id": "r4ezq08fyt", "path": "apps/renderer-vscode/esbuild.mjs", "change": "modified", "note": "`minify` + `legalComments`；render-worker 挂 `escapeNonLatin1Plugin`" },
+                { "@id": "h3v9k1pw6d", "path": "apps/renderer-vscode/scripts/escape-non-latin1.mjs", "change": "added", "note": "`escapeNonLatin1` 与 `escapeNonLatin1Plugin`（附 `.d.mts`）" },
+                { "@id": "t7c2x5jq0m", "path": "apps/renderer-vscode/test/escape-non-latin1.test.ts", "change": "added", "note": "Unit：转义后无非 Latin-1 字符；字符串与正则（含 `u` 标志、非 BMP 字符）求值不变" },
+                { "@id": "9bs8hj9dyd", "path": "apps/renderer-vscode/src/worker-slot.ts", "change": "deleted" },
+                { "@id": "f8hwtb78ds", "path": "apps/renderer-vscode/test/render-worker-pool.test.ts", "change": "added", "note": "注入假 `spawnWorker`（EventEmitter 实现 `send` / `kill`，可模拟 `ready`、`result`、退出）" },
+                { "@id": "w025b9i2xv", "path": "apps/renderer-vscode/test/diagnostic-code-coverage.test.ts", "change": "added" },
+                { "@id": "0dmt14qaj9", "path": "apps/renderer-vscode/test/render-job.test.ts", "change": "modified", "note": "recipe 无 `jobId`" },
+                { "@id": "evgdh21883", "path": "apps/renderer-vscode/test/render-worker-boot.test.ts", "change": "modified", "note": "真实 bundle：不含非 Latin-1 字符；等 `ready`，分别渲染 `html-blocks` 与 `mermaid-ok-1.1.0`，断言成功" },
+                { "@id": "0ievn4f9jl", "path": "apps/renderer-vscode/test/watch.test.ts", "change": "modified", "note": "改用 `DebouncedRunner`" }
+              ]
+            }
+          ]
+        },
+        {
+          "@id": "xwag1ntshn",
+          "type": "checklist",
+          "items": [
+            { "@id": "8a4tanzsmb", "label": "按上述设计完成源码改动与删除" },
+            { "@id": "m1uttks8j7", "label": "`render-worker-pool.test.ts` 覆盖：构造即 fork；`ready` 前任务排队、`ready` 后分配；启动中的进程计为名额，单任务不多 fork；多任务并行 fork 且总数不超过 5；满 5 个后排队并在进程结束后出队；取消排队任务；取消执行中任务；任务超时产出 timeout 诊断；启动超时与 `ready` 前退出使排队任务全部产出 failed 诊断且不补位；忙碌进程未返回即退出产出 failed 诊断；空闲进程退出后立即补位；`dispose` kill 全部且之后 `submit` 返回 `cancelled`。诊断经 `assertDiagnosticsMatchCatalog` 核对严重级别" },
+            { "@id": "lx1lcrxdvp", "label": "`diagnostic-code-coverage.test.ts` 通过 `assertDiagnosticCodeCoverage`" },
+            { "@id": "y7rjqxgaok", "label": "`pnpm --filter airp-renderer-vscode fix` 通过" },
+            { "@id": "g9w4a6koof", "label": "`pnpm turbo run build --filter=airp-renderer-vscode...` 通过（`render-worker-boot.test.ts` 依赖最新 `dist/render-worker.cjs`）" },
+            { "@id": "ygx75r99rz", "label": "`pnpm --filter airp-renderer-vscode test` 通过" },
+            { "@id": "85krhcyig1", "label": "路线图阶段 2 `status` 改为 `done`，更新 `meta.updatedBy` / `meta.updatedAt` 并校验本文档" }
+          ]
+        }
+      ]
+    },
+    {
+      "@id": "ui89w9qpgq",
+      "type": "section",
+      "title": "阶段 3：全仓验收",
+      "children": [
+        {
+          "@id": "2qtd3c3nre",
+          "type": "checklist",
+          "items": [
+            { "@id": "r5xhrzvgc7", "label": "根目录 `pnpm fix` 通过" },
+            { "@id": "f5tj5dzcwn", "label": "根目录 `pnpm test` 通过" },
+            { "@id": "8h66quxy50", "label": "在 `apps/renderer-vscode` 下按下方命令复测，把实测值写回基线表的「验收」列" },
+            { "@id": "t3y33msqjx", "label": "路线图阶段 3 `status` 改为 `done`，更新 `meta.updatedBy` / `meta.updatedAt` 并校验本文档" }
+          ]
+        },
+        {
+          "@id": "emke51px87",
+          "type": "code",
+          "language": "bash",
+          "filename": "apps/renderer-vscode",
+          "code": "# render-worker.cjs size\nls -l dist/render-worker.cjs\n\n# non-Latin-1 chars in render-worker.cjs (must be 0)\nnode -e 'const t=require(\"fs\").readFileSync(\"dist/render-worker.cjs\",\"utf8\");console.log([...t].filter((c)=>c.codePointAt(0)>255).length)'\n\n# fork -> ready, idle RSS, ready worker send -> result (run once per fixture)\nfor f in html-blocks mermaid-ok-1.1.0; do\n  node -e 'const{fork,execSync}=require(\"child_process\");const t0=Date.now();let t1;const c=fork(\"./dist/render-worker.cjs\",[],{stdio:[\"ignore\",\"inherit\",\"inherit\",\"ipc\"]});c.on(\"message\",(m)=>{if(m.type===\"ready\"){t1=Date.now();const rss=Number(execSync(`ps -o rss= -p ${c.pid}`).toString().trim());console.log(\"ready\",t1-t0,\"ms rss\",Math.round(rss/1024),\"MB\");c.send({input:process.argv[1],target:\"html\"});return}console.log(\"result\",m.result.ok,Date.now()-t1,\"ms\");c.kill(\"SIGKILL\")})' \"../../fixtures/airp/documents/valid/$f.airp.json\"\ndone"
+        }
+      ]
+    },
+    {
+      "@id": "g0ud5jd6zs",
+      "type": "section",
+      "title": "范围外（只记录）",
+      "children": [
+        {
+          "@id": "lso9zlpv8e",
+          "type": "bulletList",
+          "items": [
+            "jsdom 换 happy-dom：jsdom 只为 Mermaid 提供 DOM API（尺寸由 `ensure-mermaid-dom.ts` 估算），实测加载并建窗约 +76 MB，happy-dom 约 +49 MB。涉及 `packages/renderer-target-html`、`apps/validate-cli` 与 `registry://rules.renderer.rules.mermaid-svg`，需用全部 Mermaid fixture 回归，另开任务。"
+          ]
+        }
+      ]
+    }
+  ]
+}
