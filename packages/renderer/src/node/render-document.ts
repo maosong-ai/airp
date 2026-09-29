@@ -7,6 +7,9 @@ import type {
 import { renderDocumentWithCatalog } from "../pipeline/render-document-with-catalog.js";
 import { rendererTargetCatalog } from "./catalog.js";
 
+// biome-ignore lint/performance/noBarrelFile: Node render entry exposes the HTML target warm-up
+export { warmUpHtmlRenderer as warmUpRenderer } from "@airp/renderer-target-html/node";
+
 /**
  * Node render entry: HTML uses Mermaid→SVG via renderer-target-html/node.
  * Imported via `@airp/renderer/node/render` (not the `/node` hot-reload barrel).

@@ -1,52 +1,59 @@
-import { createHighlighter, type Highlighter } from "shiki";
+import {
+  createHighlighterCore,
+  type HighlighterCore,
+  type LanguageInput,
+} from "shiki/core";
+import { createOnigurumaEngine } from "shiki/engine/oniguruma";
 
-/** First-wave language whitelist (reader-side; protocol language stays free-form). */
-export const SHIKI_LANGUAGE_WHITELIST = [
-  "text",
-  "diff",
-  "typescript",
-  "javascript",
-  "tsx",
-  "jsx",
-  "html",
-  "css",
-  "scss",
-  "json",
-  "jsonc",
-  "go",
-  "rust",
-  "c",
-  "cpp",
-  "csharp",
-  "java",
-  "kotlin",
-  "python",
-  "ruby",
-  "php",
-  "lua",
-  "shellscript",
-  "powershell",
-  "yaml",
-  "toml",
-  "xml",
-  "graphql",
-  "sql",
-  "protobuf",
-  "markdown",
-  "mdx",
-  "vue",
-  "svelte",
-  "dockerfile",
-  "terraform",
-  "nginx",
-  "makefile",
-  "swift",
-  "scala",
-  "dart",
-  "ini",
-] as const;
+/**
+ * Reader-side language whitelist (protocol language stays free-form).
+ * Only these grammars are bundled; `text` is Shiki core's built-in plain language.
+ */
+const SHIKI_LANGUAGE_LOADERS = {
+  diff: () => import("shiki/langs/diff.mjs"),
+  typescript: () => import("shiki/langs/typescript.mjs"),
+  javascript: () => import("shiki/langs/javascript.mjs"),
+  tsx: () => import("shiki/langs/tsx.mjs"),
+  jsx: () => import("shiki/langs/jsx.mjs"),
+  html: () => import("shiki/langs/html.mjs"),
+  css: () => import("shiki/langs/css.mjs"),
+  scss: () => import("shiki/langs/scss.mjs"),
+  json: () => import("shiki/langs/json.mjs"),
+  jsonc: () => import("shiki/langs/jsonc.mjs"),
+  go: () => import("shiki/langs/go.mjs"),
+  rust: () => import("shiki/langs/rust.mjs"),
+  c: () => import("shiki/langs/c.mjs"),
+  cpp: () => import("shiki/langs/cpp.mjs"),
+  csharp: () => import("shiki/langs/csharp.mjs"),
+  java: () => import("shiki/langs/java.mjs"),
+  kotlin: () => import("shiki/langs/kotlin.mjs"),
+  python: () => import("shiki/langs/python.mjs"),
+  ruby: () => import("shiki/langs/ruby.mjs"),
+  php: () => import("shiki/langs/php.mjs"),
+  lua: () => import("shiki/langs/lua.mjs"),
+  shellscript: () => import("shiki/langs/shellscript.mjs"),
+  powershell: () => import("shiki/langs/powershell.mjs"),
+  yaml: () => import("shiki/langs/yaml.mjs"),
+  toml: () => import("shiki/langs/toml.mjs"),
+  xml: () => import("shiki/langs/xml.mjs"),
+  graphql: () => import("shiki/langs/graphql.mjs"),
+  sql: () => import("shiki/langs/sql.mjs"),
+  protobuf: () => import("shiki/langs/protobuf.mjs"),
+  markdown: () => import("shiki/langs/markdown.mjs"),
+  mdx: () => import("shiki/langs/mdx.mjs"),
+  vue: () => import("shiki/langs/vue.mjs"),
+  svelte: () => import("shiki/langs/svelte.mjs"),
+  dockerfile: () => import("shiki/langs/dockerfile.mjs"),
+  terraform: () => import("shiki/langs/terraform.mjs"),
+  nginx: () => import("shiki/langs/nginx.mjs"),
+  makefile: () => import("shiki/langs/makefile.mjs"),
+  swift: () => import("shiki/langs/swift.mjs"),
+  scala: () => import("shiki/langs/scala.mjs"),
+  dart: () => import("shiki/langs/dart.mjs"),
+  ini: () => import("shiki/langs/ini.mjs"),
+} satisfies Record<string, LanguageInput>;
 
-export type ShikiLanguage = (typeof SHIKI_LANGUAGE_WHITELIST)[number];
+export type ShikiLanguage = "text" | keyof typeof SHIKI_LANGUAGE_LOADERS;
 
 const LANGUAGE_ALIASES: Record<string, ShikiLanguage> = {
   ts: "typescript",
@@ -81,14 +88,17 @@ const LANGUAGE_ALIASES: Record<string, ShikiLanguage> = {
   mk: "makefile",
 };
 
-const WHITELIST_SET = new Set<string>(SHIKI_LANGUAGE_WHITELIST);
+let highlighterPromise: Promise<HighlighterCore> | undefined;
 
-let highlighterPromise: Promise<Highlighter> | undefined;
-
-function getHighlighter(): Promise<Highlighter> {
-  highlighterPromise ??= createHighlighter({
-    themes: ["one-light", "one-dark-pro"],
-    langs: [...SHIKI_LANGUAGE_WHITELIST],
+/** Process-wide highlighter with every whitelisted language and both themes loaded. */
+export function getHighlighter(): Promise<HighlighterCore> {
+  highlighterPromise ??= createHighlighterCore({
+    themes: [
+      import("shiki/themes/one-light.mjs"),
+      import("shiki/themes/one-dark-pro.mjs"),
+    ],
+    langs: Object.values(SHIKI_LANGUAGE_LOADERS),
+    engine: createOnigurumaEngine(import("shiki/wasm")),
   });
   return highlighterPromise;
 }
@@ -105,7 +115,7 @@ export function resolveShikiLanguage(
   if (aliased) {
     return aliased;
   }
-  if (WHITELIST_SET.has(key)) {
+  if (Object.hasOwn(SHIKI_LANGUAGE_LOADERS, key)) {
     return key as ShikiLanguage;
   }
   return "text";
