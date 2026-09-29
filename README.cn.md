@@ -5,7 +5,7 @@
 ![AIRP screen capture](./screen-capture.png "AIRP screen capture")
 
 **让 AI 写出来的报告更好读，也好改。**
-
+1
 AI 直接出 Markdown，往往又平又散；直接出 HTML，版式好看，但又长又费 token，后面也不好改。AIRP 的做法是：先让 AI 写出一份 `*.airp.json` 源文件，再用 **AIRP Renderer** 扩展打开成排版好的 HTML；需要对外发时，再导出 HTML 或 Markdown。
 
 源文件按 Notion 那套 **积木块（Block）** 组织，目前有 **46** 种——指标首屏、对比、决策、时间线、Mermaid、架构总览等。每种有自己的版式，方案、评审、复盘、审计这类报告会清楚很多，不会糊成一坨字。
