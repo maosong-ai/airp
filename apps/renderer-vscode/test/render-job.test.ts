@@ -7,7 +7,6 @@ describe("render worker pipeline (E2E)", () => {
     const input = documentPath("valid/minimal.airp.json");
     const result = await runRenderJob({
       input,
-      jobId: 1,
       target: "html",
       targetOptions: {
         extraAppHeader: '<span data-test-export="true">Export</span>',
@@ -27,7 +26,6 @@ describe("render worker pipeline (E2E)", () => {
     const input = documentPath("valid/minimal.airp.json");
     const result = await runRenderJob({
       input,
-      jobId: 2,
       target: "markdown",
     });
     expect(result.ok).toBe(true);

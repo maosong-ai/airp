@@ -45,15 +45,13 @@ export class WatchEventBuffer {
 export type DebouncedRun = () => void | Promise<void>;
 
 /**
- * Quiet debounce + serial trailing: while a run is in flight, at most one
- * additional run is queued for after it finishes.
+ * Quiet-window debounce: kicks within the window collapse into one trailing
+ * run. Runs are not serialized; callers cancel superseded work themselves.
  */
-export class DebouncedSerialRunner {
+export class DebouncedRunner {
   private readonly debounceMs: number;
   private readonly run: DebouncedRun;
   private debounceTimer: ReturnType<typeof setTimeout> | undefined;
-  private inflight: Promise<void> | undefined;
-  private trailing = false;
 
   constructor(run: DebouncedRun, debounceMs = WATCH_DEBOUNCE_MS) {
     this.run = run;
@@ -62,41 +60,20 @@ export class DebouncedSerialRunner {
 
   /** Schedule a trailing run after quiet. */
   kick(debounceMs = this.debounceMs): void {
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-    }
+    this.clear();
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = undefined;
-      this.enqueue();
+      Promise.resolve()
+        .then(() => this.run())
+        .catch(() => undefined);
     }, debounceMs);
   }
 
-  /** Cancel pending debounce (does not abort an in-flight run). */
+  /** Cancel the pending run, if any. */
   clear(): void {
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = undefined;
     }
-    this.trailing = false;
-  }
-
-  private enqueue(): void {
-    if (this.inflight) {
-      this.trailing = true;
-      return;
-    }
-    this.inflight = Promise.resolve()
-      .then(() => this.run())
-      .then(
-        () => undefined,
-        () => undefined
-      )
-      .finally(() => {
-        this.inflight = undefined;
-        if (this.trailing) {
-          this.trailing = false;
-          this.enqueue();
-        }
-      });
   }
 }

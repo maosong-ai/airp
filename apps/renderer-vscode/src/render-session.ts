@@ -20,21 +20,25 @@ import { colorSchemeFromThemeKind } from "./color-scheme";
 import { toDiagnosticLines } from "./diagnostic-lines";
 import { isCursorHost } from "./host-env";
 import { buildHostShellHtml } from "./host-shell";
+import {
+  buildLoadingShellHtml,
+  PLACEHOLDER_READY_TIMEOUT_MS,
+} from "./loading-shell";
 import type {
   ExportFormat,
   HostToWebviewMessage,
   WebviewToHostMessage,
 } from "./messages";
 import { isAirpJsonFsPath, resolveExportDefaultPath } from "./paths";
+import type { RenderJobHandle, RenderWorkerPool } from "./render-worker-pool";
 import { buildTargetOptions } from "./target-options-build";
 import {
-  DebouncedSerialRunner,
+  DebouncedRunner,
   formatWatchLogLine,
   WATCH_DEBOUNCE_MS,
   WatchEventBuffer,
   type WatchEventKind,
 } from "./watch";
-import { WorkerSlot } from "./worker-slot";
 
 const RENDER_FAILED = "Render failed";
 const RENDER_SUCCEEDED = "Render succeeded";
@@ -50,6 +54,7 @@ export interface RenderSessionHost {
   extensionUri: Uri;
   log: Logger;
   output: OutputChannel;
+  pool: RenderWorkerPool;
 }
 
 export interface RenderSessionOptions {
@@ -66,19 +71,25 @@ export class RenderSession {
   private readonly host: RenderSessionHost;
   private readonly panel: WebviewPanel;
   private readonly inputFsPath: string;
-  private readonly workerSlot: WorkerSlot;
   private readonly disposables: Disposable[] = [];
   private readonly watchEvents = new WatchEventBuffer();
-  private watchRunner: DebouncedSerialRunner | undefined;
+  private watchRunner: DebouncedRunner | undefined;
+  private renderJob: RenderJobHandle | undefined;
+  private exportJob: RenderJobHandle | undefined;
   private hasSuccessfulHtml = false;
   private disposed = false;
+  private htmlCommitted = false;
+  private placeholderSettled = false;
+  private placeholderTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly placeholderReady: Promise<void>;
+  private resolvePlaceholderReady: () => void = () => undefined;
 
   constructor(options: RenderSessionOptions) {
     this.host = options.host;
     this.panel = options.panel;
     this.inputFsPath = path.resolve(options.inputFsPath);
-    this.workerSlot = new WorkerSlot({
-      extensionUri: options.host.extensionUri,
+    this.placeholderReady = new Promise((resolve) => {
+      this.resolvePlaceholderReady = resolve;
     });
     this.panel.webview.options = {
       enableScripts: true,
@@ -114,10 +125,23 @@ export class RenderSession {
     return this.panel.active;
   }
 
-  async start(): Promise<void> {
+  /**
+   * Assign the loading shell and return immediately. Cursor does not start the
+   * inner iframe (or deliver webview messages) until `resolveCustomEditor`
+   * returns; awaiting the first render here would make the placeholder wait
+   * time out and then pay the ~1s iframe tax on the real HTML.
+   */
+  start(): void {
     this.panel.title = PANEL_TITLE;
+    this.placeholderTimer = setTimeout(() => {
+      this.settlePlaceholder();
+    }, PLACEHOLDER_READY_TIMEOUT_MS);
+    this.panel.webview.html = buildLoadingShellHtml();
     this.startWatching();
-    await this.runRender();
+    this.runRender().catch((error: unknown) => {
+      const text = error instanceof Error ? error.message : String(error);
+      this.host.log.error(text);
+    });
   }
 
   reveal(): void {
@@ -129,12 +153,37 @@ export class RenderSession {
       return;
     }
     this.disposed = true;
+    this.settlePlaceholder();
     this.stopWatching();
-    this.workerSlot.killActive();
+    this.renderJob?.cancel();
+    this.exportJob?.cancel();
     for (const disposable of this.disposables) {
       disposable.dispose();
     }
     this.disposables.length = 0;
+  }
+
+  private settlePlaceholder(): void {
+    if (this.placeholderSettled) {
+      return;
+    }
+    this.placeholderSettled = true;
+    if (this.placeholderTimer !== undefined) {
+      clearTimeout(this.placeholderTimer);
+      this.placeholderTimer = undefined;
+    }
+    this.resolvePlaceholderReady();
+  }
+
+  private async commitWebviewHtml(html: string): Promise<void> {
+    if (!this.htmlCommitted) {
+      await this.placeholderReady;
+    }
+    if (this.disposed) {
+      return;
+    }
+    this.panel.webview.html = html;
+    this.htmlCommitted = true;
   }
 
   private post(message: HostToWebviewMessage): void {
@@ -149,6 +198,10 @@ export class RenderSession {
       return;
     }
     const message = raw as WebviewToHostMessage;
+    if (message.type === "placeholderReady") {
+      this.settlePlaceholder();
+      return;
+    }
     if (message.type === "openOutput") {
       this.host.output.show(true);
       return;
@@ -185,7 +238,11 @@ export class RenderSession {
   private async runRender(): Promise<void> {
     const keepPreviousHtml = this.hasSuccessfulHtml;
     const targetOptions = await this.currentTargetOptions();
-    const result = await this.workerSlot.runRender({
+    if (this.disposed) {
+      return;
+    }
+    this.renderJob?.cancel();
+    const job = this.host.pool.submit({
       input: this.inputFsPath,
       target: "html",
       targetOptions: {
@@ -195,33 +252,40 @@ export class RenderSession {
         extraAppHeader: targetOptions.extraAppHeader,
       },
     });
-    if (this.disposed) {
+    this.renderJob = job;
+    const outcome = await job.outcome;
+    if (this.renderJob === job) {
+      this.renderJob = undefined;
+    }
+    if (outcome.kind === "cancelled" || this.disposed) {
       return;
     }
+    const { result } = outcome;
     if (!result.ok) {
-      if (result.cancelled) {
-        return;
-      }
       this.logDiagnostics(result.diagnostics);
       const lines = toDiagnosticLines(result.diagnostics);
       if (keepPreviousHtml) {
         this.post({ type: "toast", kind: "failed" });
         return;
       }
-      this.panel.webview.html = await buildHostShellHtml({
-        extensionUri: this.host.extensionUri,
-        diagnostics: lines,
-        renderFailed: RENDER_FAILED,
-        renderSucceeded: RENDER_SUCCEEDED,
-        useCustomFind: isCursorHost(env.appName),
-        webview: this.panel.webview,
-      });
+      await this.commitWebviewHtml(
+        await buildHostShellHtml({
+          extensionUri: this.host.extensionUri,
+          diagnostics: lines,
+          renderFailed: RENDER_FAILED,
+          renderSucceeded: RENDER_SUCCEEDED,
+          useCustomFind: isCursorHost(env.appName),
+          webview: this.panel.webview,
+        })
+      );
       return;
     }
     this.logDiagnostics(result.diagnostics);
-    this.hasSuccessfulHtml = true;
-    this.panel.title = result.documentTitle;
-    this.panel.webview.html = result.body;
+    this.panel.title = result.value.documentTitle;
+    await this.commitWebviewHtml(result.value.body);
+    if (!this.disposed) {
+      this.hasSuccessfulHtml = true;
+    }
   }
 
   private async runExport(format: ExportFormat): Promise<void> {
@@ -235,24 +299,31 @@ export class RenderSession {
       ),
       filters,
     });
-    if (!uri) {
+    if (!uri || this.disposed) {
       return;
     }
-    const result = await this.workerSlot.runRender({
+    this.exportJob?.cancel();
+    const job = this.host.pool.submit({
       input: this.inputFsPath,
       target: format === "html" ? "html" : "markdown",
     });
+    this.exportJob = job;
+    const outcome = await job.outcome;
+    if (this.exportJob === job) {
+      this.exportJob = undefined;
+    }
+    if (outcome.kind === "cancelled") {
+      return;
+    }
+    const { result } = outcome;
     if (!result.ok) {
-      if (result.cancelled) {
-        return;
-      }
       this.logDiagnostics(result.diagnostics);
       this.host.log.error(EXPORT_FAILED);
       this.post({ type: "toast", kind: "failed" });
       return;
     }
     this.logDiagnostics(result.diagnostics);
-    await writeFile(uri.fsPath, result.body, "utf8");
+    await writeFile(uri.fsPath, result.value.body, "utf8");
     await this.host.context.globalState.update(
       LAST_EXPORT_DIR_KEY,
       path.dirname(uri.fsPath)
@@ -265,7 +336,7 @@ export class RenderSession {
     if (this.watchRunner) {
       return;
     }
-    this.watchRunner = new DebouncedSerialRunner(() => this.onWatchFire());
+    this.watchRunner = new DebouncedRunner(() => this.onWatchFire());
     const dir = path.dirname(this.inputFsPath);
     const base = path.basename(this.inputFsPath);
     const fileWatcher = workspace.createFileSystemWatcher(
@@ -317,7 +388,7 @@ export class RenderSession {
       return;
     }
     this.watchEvents.note(absolute, kind);
-    this.workerSlot.killActive();
+    this.renderJob?.cancel();
     const rerenderDelayMs = workspace
       .getConfiguration(
         RENDERER_CONFIGURATION_SECTION,

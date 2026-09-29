@@ -5,11 +5,7 @@ import type { AirpDocumentSnapshot } from "@airp/renderer";
 import { renderDocument } from "@airp/renderer/node/render";
 import { validateDocument } from "@airp/validate";
 import { documentTitleFromLoaded } from "../document-title.js";
-import type { PipelineStage, RenderJobRecipe } from "./ipc.js";
-
-export interface RunRenderJobHooks {
-  onStage?: (stage: PipelineStage) => void;
-}
+import type { RenderJobRecipe } from "./ipc.js";
 
 export interface RunRenderJobValue {
   body: string;
@@ -35,12 +31,10 @@ function primaryBody(
 
 /** Load → validate → render; return primary body (no disk write). */
 export async function runRenderJob(
-  recipe: RenderJobRecipe,
-  hooks: RunRenderJobHooks = {}
+  recipe: RenderJobRecipe
 ): Promise<RunRenderJobResult> {
   const inputFile = path.resolve(recipe.input);
 
-  hooks.onStage?.("loading");
   const loadResult = await loadDocumentFile(inputFile);
   if (!loadResult.ok) {
     return airpResultFrom(
@@ -48,13 +42,11 @@ export async function runRenderJob(
     ) as FailResult;
   }
 
-  hooks.onStage?.("validating");
   const validation = await validateDocument(loadResult.value.document);
   if (!validation.ok) {
     return airpResultFrom(validation.diagnostics) as FailResult;
   }
 
-  hooks.onStage?.("rendering");
   const renderResult = await renderDocument(
     loadResult.value.document as unknown as AirpDocumentSnapshot,
     recipe.target,

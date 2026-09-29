@@ -1,3 +1,4 @@
+import { fork } from "node:child_process";
 import type { Logger } from "@airp/utils";
 import {
   type CancellationToken,
@@ -18,6 +19,7 @@ import {
   RenderSession,
   type RenderSessionHost,
 } from "./render-session";
+import { RenderWorkerPool } from "./render-worker-pool";
 import { createVscodeLogger } from "./vscode-logger";
 
 export const VIEW_TYPE = "airp.renderer";
@@ -28,14 +30,28 @@ const sessions = new Map<string, RenderSession>();
 export function activate(context: ExtensionContext): void {
   const output = window.createOutputChannel(PANEL_TITLE);
   const log: Logger = createVscodeLogger(output);
+  const workerPath = Uri.joinPath(
+    context.extensionUri,
+    "dist",
+    "render-worker.cjs"
+  ).fsPath;
+  const pool = new RenderWorkerPool({
+    spawnWorker: () =>
+      fork(workerPath, [], {
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+        execPath: process.execPath,
+        stdio: ["ignore", "inherit", "inherit", "ipc"],
+      }),
+  });
   const host: RenderSessionHost = {
     context,
     extensionUri: context.extensionUri,
     log,
     output,
+    pool,
   };
 
-  context.subscriptions.push(output);
+  context.subscriptions.push(output, pool);
   context.subscriptions.push(
     window.registerCustomEditorProvider(
       VIEW_TYPE,
@@ -84,7 +100,7 @@ class AirpRendererEditorProvider implements CustomReadonlyEditorProvider {
     return { uri, dispose: () => undefined };
   }
 
-  async resolveCustomEditor(
+  resolveCustomEditor(
     document: CustomDocument,
     webviewPanel: WebviewPanel,
     _token: CancellationToken
@@ -108,7 +124,8 @@ class AirpRendererEditorProvider implements CustomReadonlyEditorProvider {
         sessions.delete(key);
       }
     });
-    await session.start();
+    session.start();
+    return Promise.resolve();
   }
 }
 

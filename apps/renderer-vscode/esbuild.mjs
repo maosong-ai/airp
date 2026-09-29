@@ -1,4 +1,5 @@
 import { build, context } from "esbuild";
+import { escapeNonLatin1Plugin } from "./scripts/escape-non-latin1.mjs";
 import { stubXhrSyncWorkerPlugin } from "./scripts/stub-xhr-sync-worker.mjs";
 import { waitHtmlDistPlugin } from "./scripts/wait-html-dist.mjs";
 
@@ -10,7 +11,9 @@ const extension = {
   entryPoints: ["src/extension.ts"],
   external: ["vscode"],
   format: "cjs",
+  legalComments: "external",
   logLevel: "info",
+  minify: true,
   outfile: "dist/extension.cjs",
   platform: "node",
   plugins: [waitHtmlDistPlugin()],
@@ -23,10 +26,16 @@ const renderWorker = {
   bundle: true,
   entryPoints: ["src/workers/render-worker-main.ts"],
   format: "cjs",
+  legalComments: "external",
   logLevel: "info",
+  minify: true,
   outfile: "dist/render-worker.cjs",
   platform: "node",
-  plugins: [waitHtmlDistPlugin(), stubXhrSyncWorkerPlugin()],
+  plugins: [
+    waitHtmlDistPlugin(),
+    stubXhrSyncWorkerPlugin(),
+    escapeNonLatin1Plugin(),
+  ],
   sourcemap: true,
   target: "node20",
 };
@@ -36,7 +45,9 @@ const webview = {
   bundle: true,
   entryPoints: ["src/webview/main.ts"],
   format: "iife",
+  legalComments: "external",
   logLevel: "info",
+  minify: true,
   outfile: "dist/webview.js",
   platform: "browser",
   // No sourcemap: webview CSP is default-src 'none' and blocks *.map fetches.

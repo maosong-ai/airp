@@ -1,79 +1,47 @@
-import type {
-  HostToRenderWorkerMessage,
-  RenderWorkerToHostMessage,
-} from "./ipc";
-import { runRenderJob } from "./run-render-job";
+import { diagnostic } from "@airp/diagnostics";
+import { warmUpRenderer } from "@airp/renderer/node/render";
+import { RENDERER_VSCODE_WORKERS_FAILED } from "../diagnostic-codes";
+import type { RenderJobRecipe, RenderWorkerMessage } from "./ipc";
+import { type RunRenderJobResult, runRenderJob } from "./run-render-job";
+import { warmUpPipeline } from "./warm-up-pipeline";
 
-function send(message: RenderWorkerToHostMessage): void {
-  if (typeof process.send === "function") {
-    process.send(message);
-  }
+function send(message: RenderWorkerMessage): void {
+  process.send?.(message);
 }
 
-async function handleRun(message: HostToRenderWorkerMessage): Promise<void> {
-  const { recipe } = message;
+async function run(recipe: RenderJobRecipe): Promise<RunRenderJobResult> {
   try {
-    const result = await runRenderJob(recipe, {
-      onStage: (stage) => {
-        send({ type: "stage", stage, jobId: recipe.jobId });
-      },
-    });
-    if (!result.ok) {
-      send({
-        type: "result",
-        jobId: recipe.jobId,
-        ok: false,
-        diagnostics: result.diagnostics,
-      });
-      return;
-    }
-    send({
-      type: "result",
-      jobId: recipe.jobId,
-      ok: true,
-      body: result.value.body,
-      documentTitle: result.value.documentTitle,
-      diagnostics: result.diagnostics,
-    });
+    return await runRenderJob(recipe);
   } catch (error: unknown) {
-    const messageText = error instanceof Error ? error.message : String(error);
-    send({
-      type: "result",
-      jobId: recipe.jobId,
+    const text = error instanceof Error ? error.message : String(error);
+    return {
       ok: false,
       diagnostics: [
-        {
-          code: "internal",
-          severity: "error",
-          message: messageText,
-        },
+        diagnostic(
+          RENDERER_VSCODE_WORKERS_FAILED,
+          `Render worker failed: ${text}`
+        ),
       ],
-    });
+    };
   }
 }
 
-process.on("message", (raw: unknown) => {
-  if (
-    typeof raw === "object" &&
-    raw !== null &&
-    "type" in raw &&
-    (raw as { type: unknown }).type === "run"
-  ) {
-    handleRun(raw as HostToRenderWorkerMessage).catch((error: unknown) => {
-      const messageText =
-        error instanceof Error ? error.message : String(error);
-      send({
-        type: "result",
-        jobId: 0,
-        ok: false,
-        diagnostics: [
-          {
-            code: "internal",
-            severity: "error",
-            message: messageText,
-          },
-        ],
-      });
-    });
-  }
+// Host death closes the IPC channel; nothing here is worth finishing.
+process.on("disconnect", () => {
+  process.exit();
 });
+
+process.on("message", (recipe: RenderJobRecipe) => {
+  run(recipe).then((result) => {
+    send({ type: "result", result });
+  });
+});
+
+// Warm-up failures resurface through normal diagnostics when a job runs.
+warmUpRenderer()
+  .catch(() => undefined)
+  .then(() => warmUpPipeline())
+  .catch(() => undefined)
+  .then(() => {
+    send({ type: "ready" });
+  });

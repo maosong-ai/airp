@@ -14,4 +14,5 @@ export type WebviewToHostMessage =
   | { type: "ready" }
   | { type: "editSource" }
   | { type: "export"; format: ExportFormat }
-  | { type: "openOutput" };
+  | { type: "openOutput" }
+  | { type: "placeholderReady" };
